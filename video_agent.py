@@ -11,7 +11,8 @@ class LiveVideoAgent:
     def __init__(self, describer, video_source, video_output, 
                  prompt_history=None, skip_during_inference=True, 
                  prompt=None, max_tokens=16,
-                 save_output = True, output_file = "prompt_history.csv"):
+                 save_output = True, output_file = "prompt_history.csv",
+                 save_video = False, video_path = "output.mp4"):
         self.describer = describer
         self.video_source = video_source
         self.video_output = video_output
@@ -20,8 +21,12 @@ class LiveVideoAgent:
         self.prompt = prompt
         self.max_tokens = max_tokens
         self.save_output = save_output
+        self.save_video = save_video
+
         if self.save_output:
             self.prompt_history_file = output_file
+        if self.save_video:
+            self.video_file = video_path
 
         self.running = False
         self.inference_thread = None

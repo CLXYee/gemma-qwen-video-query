@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from local_llm import Plugin
+from plugin import Plugin
 
 class Callback(Plugin):
     """
