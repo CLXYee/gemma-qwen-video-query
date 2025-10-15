@@ -20,12 +20,12 @@ class Gemma3ImageDescriber():
     
     def describe_frame(self, image_path, prompt=None, max_new_tokens=16):
         if prompt is None:
-            prompt = "Describe the image precisely within 10 words. Only output the description. Do not provide additional explanations."
+            prompt = "Describe the image precisely. "
         
         messages = [
             {
                 "role": "system",
-                "content": [{"type": "text", "text": "You are a real time open vocabulary detection agent."}]
+                "content": [{"type": "text", "text": "You are an open vocabulary detection agent. Output within 10 words. Do not provide additional explanations"}]
             },
             {
                 "role": "user",

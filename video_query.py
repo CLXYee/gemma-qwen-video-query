@@ -21,13 +21,13 @@ def main():
         "--width",
         type=int,
         default=1280,
-        help="Video display width"
+        help="Video display width (remember to set --on_video as well)"
     )
     parser.add_argument(
         "--height",
         type=int,
         default=720,
-        help="Video display height"
+        help="Video display height (remember to set --on_video as well)"
     )
     parser.add_argument(
         "--on_video",
@@ -41,8 +41,7 @@ def main():
     )
     parser.add_argument(
         "--save_output",
-        type=bool,
-        default=True,
+        action="store_true",
         help="Save VLM output as a csv"
     )
     parser.add_argument(
@@ -52,10 +51,22 @@ def main():
         help="Save VLM output as a csv"
     )
     parser.add_argument(
-        "--save_video",
+        "--save_video", #TBC
         type=bool,
         default=False,
         help="Save video with VLM output"
+    )
+    parser.add_argument(
+        "--video_path", 
+        type=str,
+        default="output.mp4",
+        help="Path to save video with VLM output"
+    )
+    parser.add_argument(
+        "--on_server", #TBC
+        type=str,
+        default="rtc",
+        help="Stream live video display and caption rendering on server"
     )
     parser.add_argument(
         "--model_id",
@@ -77,11 +88,13 @@ def main():
     )
     parser.add_argument(
         "--return_tensors",
+        type=str,
         default='cuda',
         help="Return tensor of the VideoSource (cuda, np, pt)"
     )
 
     args = parser.parse_args()
+    parser.print_help()
 
     # -----------------------------
     # Initialize components
@@ -90,7 +103,7 @@ def main():
     describer = Gemma3ImageDescriber(model_id = args.model_id)
     video_source = VideoSource(args.source, return_tensors=args.return_tensors)
 
-    if args.no_display:
+    if args.no_display or args.on_video==False:
         video_output = None
     else:
         video_output = PyVideoOutput(width=args.width, height=args.height)
@@ -98,7 +111,8 @@ def main():
     agent = LiveVideoAgent(describer, 
                            video_source, video_output, 
                            prompt=args.prompt, max_tokens=args.max_tokens,
-                           save_output = args.save_output, output_file=args.output_file
+                           save_output = args.save_output, output_file=args.output_file,
+                           save_video = args.save_video, video_path = args.video_path
                            )
     agent.start()
 
@@ -122,8 +136,7 @@ def main():
 if __name__ == "__main__":
     main()
 
-# TBC:
-# Stream on server
-# Frame rate adjustment
+# To be implemented
+# Stream on server 
 # save output to server args
 # Video saving
