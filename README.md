@@ -1,4 +1,3 @@
-# gemma3-video-query
 # 🎥 Gemma3 Real-Time Video Agent (Jetson Optimized)
 
 This project enables real-time video captioning and visual understanding using **Google’s Gemma3 vision-language model**, optimized for **NVIDIA Jetson devices**.  
@@ -142,10 +141,3 @@ For Jetson-related issues:
 
 * NVIDIA Jetson Forum: [https://forums.developer.nvidia.com/c/agx-xavier/74](https://forums.developer.nvidia.com/c/agx-xavier/74)
 * PyTorch Jetson wheels: [https://forums.developer.nvidia.com/t/pytorch-for-jetson](https://forums.developer.nvidia.com/t/pytorch-for-jetson)
-
-```
-
----
-
-Would you like me to include a **“Quick Debug”** section (e.g., common errors like `GL context failed`, `torch not compiled with CUDA`, etc.) at the bottom? It’s helpful for first-time Jetson setups.
-```
