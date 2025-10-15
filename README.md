@@ -21,7 +21,7 @@ It uses CUDA-accelerated inference and a lightweight **Pygame display backend** 
 
 ### 1. Clone this repository
 ```bash
-git clone https://github.com/yourusername/gemma3-video-agent.git
+git clone https://github.com/CLXYee/gemma3-video-agent.git
 cd gemma3-video-agent
 ````
 
