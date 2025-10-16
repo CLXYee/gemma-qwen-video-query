@@ -1,19 +1,20 @@
 #!/bin/bash
 # ==============================================
 # Jetson Environment Builder for Gemma3 Video Agent
-# Compatible with JetPack 6.x (CUDA 12.2 / cuDNN 9)
+# Flexible for multiple JetPack and Python versions
 # ==============================================
 
 set -e  # Exit on any error
+
 ENV_NAME="gemma3"
-PYTHON_VERSION="3.10"
+PYTHON_VERSION=${1:-3.10}   # Allow optional argument to override Python version
 REQUIREMENTS_FILE="requirements.txt"
 
 echo "----------------------------------------------------"
 echo "Setting up environment: $ENV_NAME (Python $PYTHON_VERSION)"
 echo "----------------------------------------------------"
 
-# Check if conda exists, otherwise fallback to venv
+# Detect Conda or fallback to venv
 if command -v conda &> /dev/null
 then
     echo "Conda detected. Creating environment..."
@@ -21,18 +22,54 @@ then
     eval "$(conda shell.bash hook)"
     conda activate $ENV_NAME
 else
-    echo "Conda not found. Falling back to Python venv..."
+    echo "Conda not found. Using Python venv..."
     python$PYTHON_VERSION -m venv $ENV_NAME
     source $ENV_NAME/bin/activate
 fi
 
 echo "----------------------------------------------------"
-echo "Installing PyTorch for JetPack 6 (CUDA 12.2)..."
+echo "Detecting JetPack / CUDA version..."
 echo "----------------------------------------------------"
 
-# Install PyTorch (official NVIDIA wheel)
+# Detect CUDA version if installed
+if command -v nvcc &> /dev/null; then
+    CUDA_VERSION=$(nvcc --version | grep release | awk '{print $6}' | cut -c2-)
+    echo "CUDA detected: $CUDA_VERSION"
+else
+    echo "CUDA not detected. Installing CPU PyTorch version."
+    CUDA_VERSION="cpu"
+fi
+
+# Install PyTorch dynamically based on CUDA availability
 pip install --upgrade pip wheel setuptools
-pip install torch==2.3.0 torchvision==0.18.0 torchaudio==2.3.0 --extra-index-url https://download.pytorch.org/whl/cu122
+
+if [ "$CUDA_VERSION" == "cpu" ]; then
+    echo "Installing CPU PyTorch..."
+    pip install torch torchvision torchaudio
+else
+    echo "Installing PyTorch for CUDA $CUDA_VERSION..."
+    # Map CUDA version to official NVIDIA wheel URL if needed
+    case $CUDA_VERSION in
+        12.6)
+            TORCH_WHL="torch==2.8.0+cu126 torchvision==0.23.0+cu126 torchaudio==2.8.0"
+            INDEX_URL="https://download.pytorch.org/whl/cu126"
+            ;;
+        11.*)
+            TORCH_WHL="torch torchvision torchaudio"
+            INDEX_URL="https://download.pytorch.org/whl/cu113"  # adjust as needed
+            ;;
+        *)
+            TORCH_WHL="torch torchvision torchaudio"
+            INDEX_URL=""
+            ;;
+    esac
+
+    if [ -z "$INDEX_URL" ]; then
+        pip install $TORCH_WHL
+    else
+        pip install $TORCH_WHL --extra-index-url $INDEX_URL
+    fi
+fi
 
 echo "----------------------------------------------------"
 echo "Installing remaining dependencies..."
@@ -41,12 +78,11 @@ echo "----------------------------------------------------"
 # Create requirements.txt if missing
 if [ ! -f "$REQUIREMENTS_FILE" ]; then
 cat > $REQUIREMENTS_FILE <<EOL
-torch==2.3.0
-transformers==4.44.2
-jetson-utils==0.5.1
-numpy==1.26.4
-Pillow==10.4.0
-pygame==2.5.2
+transformers
+jetson-utils
+numpy
+Pillow
+pygame
 argparse
 EOL
 fi

@@ -28,6 +28,8 @@ class LiveVideoAgent:
         self.save_output = save_output
         self.save_video = save_video
         self.on_server = on_server
+        self.catch_time = []
+        self.i=1
 
         if self.save_output:
             self.prompt_history_file = output_file
@@ -71,7 +73,12 @@ class LiveVideoAgent:
             #np_frame = Image.fromarray(np_frame,'RGB')
             cur_time = time.time()
             description = self.describer.describe_frame(np_frame,self.prompt,self.max_tokens)
-            print("Inference time: {:.2f}s".format(time.time() - cur_time))
+            print(f"[{self.i}/100]","Inference time: {:.2f}s".format(time.time() - cur_time))
+            self.catch_time.append(time.time() - cur_time)
+            self.i += 1
+            if len(self.catch_time)==100:
+                print("[PROCESS STOPPING] Average inference time: {:.2f}s".format(np.mean(self.catch_time)))
+                self.stop()
             self.last_caption = description
             self.prompt_history.append({"timeframe": time.time(), "description": description})
 
