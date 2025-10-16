@@ -1,10 +1,9 @@
 # video_query.py
 import argparse
 import time
-from model import Gemma3ImageDescriber
 from camera import VideoSource
 from video_agent import LiveVideoAgent
-from display import PyVideoOutput
+from display import VideoOutput
 
 
 def main():
@@ -16,6 +15,12 @@ def main():
         type=str,
         default="/dev/video0",
         help="Video source (e.g. /dev/video0, rtsp://, file path)"
+    )
+    parser.add_argument(
+        "--frame_rate",
+        type=int,
+        default=60,
+        help="Video frame rate"
     )
     parser.add_argument(
         "--width",
@@ -35,7 +40,7 @@ def main():
         help="Enable live video display and caption rendering"
     )
     parser.add_argument(
-        "--no_display",
+        "--headless",
         action="store_true",
         help="Disable display output (useful for headless mode)"
     )
@@ -51,9 +56,8 @@ def main():
         help="Save VLM output as a csv"
     )
     parser.add_argument(
-        "--save_video", #TBC
-        type=bool,
-        default=False,
+        "--save_video", 
+        action="store_true",
         help="Save video with VLM output"
     )
     parser.add_argument(
@@ -77,7 +81,7 @@ def main():
     parser.add_argument(
         "--prompt",
         type=str,
-        default="Describe the image precisely within 10 words. Only output the description. Do not provide additional explanations.",
+        default="Describe the image precisely.",
         help="Define prompt to pass to the VLM"
     )
     parser.add_argument(
@@ -90,8 +94,10 @@ def main():
         "--return_tensors",
         type=str,
         default='cuda',
-        help="Return tensor of the VideoSource (cuda, np, pt)"
+        choices=['cuda', 'np', 'pt'],
+        help="Tensors output format: 'cuda' (GPU), 'np' (NumPy), 'pt' (PyTorch). Defaults to 'cuda'.",
     )
+
 
     args = parser.parse_args()
     parser.print_help()
@@ -100,19 +106,31 @@ def main():
     # Initialize components
     # -----------------------------
     print(f"[INFO] Loading model and initializing video source: {args.source}")
-    describer = Gemma3ImageDescriber(model_id = args.model_id)
-    video_source = VideoSource(args.source, return_tensors=args.return_tensors)
+    if "gemma" in args.model_id:
+        from model import Gemma3ImageDescriber
+        describer = Gemma3ImageDescriber(model_id = args.model_id)
+    elif "Qwen" in args.model_id:
+        from model import QwenImageDescriber
+        describer = QwenImageDescriber(model_id=args.model_id)
+    else:
+        print("[Warning] Model not available yet. Stay tuned! For now, please use vision-language-models from the Gemma family")
+        return
+    video_source = VideoSource(args.source, video_input_framerate=args.frame_rate, return_tensors=args.return_tensors)
 
-    if args.no_display or args.on_video==False:
+    if args.save_video and not args.on_video:
+        print("[INFO] --save_video enabled but --on_video not detected. Automatically enabling --on_video for frame fetching and rendering")
+        args.on_video = True
+    if args.headless or args.on_video==False:
         video_output = None
     else:
-        video_output = PyVideoOutput(width=args.width, height=args.height)
+        video_output = VideoOutput(width=args.width, height=args.height)
 
     agent = LiveVideoAgent(describer, 
                            video_source, video_output, 
                            prompt=args.prompt, max_tokens=args.max_tokens,
                            save_output = args.save_output, output_file=args.output_file,
-                           save_video = args.save_video, video_path = args.video_path
+                           save_video = args.save_video, video_path = args.video_path,
+                           on_server = args.on_server
                            )
     agent.start()
 
@@ -120,7 +138,7 @@ def main():
     # Run display or background mode
     # -----------------------------
     try:
-        if args.on_video and not args.no_display:
+        if args.on_video and not args.headless:
             print("[INFO] Starting video display loop...")
             while True:
                 agent.display_loop()
@@ -136,7 +154,5 @@ def main():
 if __name__ == "__main__":
     main()
 
-# To be implemented
 # Stream on server 
 # save output to server args
-# Video saving

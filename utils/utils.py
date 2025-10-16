@@ -1,3 +1,4 @@
+# Reference: https://github.com/dusty-nv/jetson-utils/blob/master/python/jetson_utils/cuda/array.py
 import numpy as np
 import ctypes as C
 from jetson_utils import cudaFont

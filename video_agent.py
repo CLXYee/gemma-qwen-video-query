@@ -3,6 +3,9 @@ import threading
 import time
 from jetson_utils import cudaMemcpy
 from utils.utils import cudaToNumpy
+import numpy as np
+from PIL import Image
+import subprocess
 import queue
 import csv
 import os
@@ -12,7 +15,9 @@ class LiveVideoAgent:
                  prompt_history=None, skip_during_inference=True, 
                  prompt=None, max_tokens=16,
                  save_output = True, output_file = "prompt_history.csv",
-                 save_video = False, video_path = "output.mp4"):
+                 save_video = False, video_path = "output.mp4",
+                 on_server = None):
+        
         self.describer = describer
         self.video_source = video_source
         self.video_output = video_output
@@ -22,11 +27,14 @@ class LiveVideoAgent:
         self.max_tokens = max_tokens
         self.save_output = save_output
         self.save_video = save_video
+        self.on_server = on_server
 
         if self.save_output:
             self.prompt_history_file = output_file
         if self.save_video:
-            self.video_file = video_path
+            self.video_path = video_path
+            self.fps = 15 # Adjust if needed
+            self.ffmpeg_process = None
 
         self.running = False
         self.inference_thread = None
@@ -36,20 +44,16 @@ class LiveVideoAgent:
         self.frame_queue = queue.Queue(maxsize=2)
         self.frame_lock = threading.Lock()
 
-        # Display thread
         self.display_thread = None
     
     def on_frame(self, frame):
         if frame is None:
-            print("[LiveVideoAgent] WARNING: frame is None")
             return
 
         try:
-            # Store frame for display
             with self.frame_lock:
                 self.latest_cuda_frame = frame
 
-            # Run inference
             if self.inference_thread is None or not self.inference_thread.is_alive():
                 self.inference_thread = threading.Thread(
                     target=self._run_inference,
@@ -64,6 +68,7 @@ class LiveVideoAgent:
     def _run_inference(self, cuda_frame):
         try:
             np_frame = cudaToNumpy(cuda_frame)
+            #np_frame = Image.fromarray(np_frame,'RGB')
             cur_time = time.time()
             description = self.describer.describe_frame(np_frame,self.prompt,self.max_tokens)
             print("Inference time: {:.2f}s".format(time.time() - cur_time))
@@ -71,8 +76,8 @@ class LiveVideoAgent:
             self.prompt_history.append({"timeframe": time.time(), "description": description})
 
             # Save to CSV every 5 new entries
-            if (self.save_output):
-                if len(self.prompt_history) % 5 == 0:
+            if len(self.prompt_history) % 5 == 0:
+                if (self.save_output):
                     file_exists = os.path.isfile(self.prompt_history_file)
                     with open(self.prompt_history_file, mode='a', newline='', encoding='utf-8') as f:
                         writer = csv.DictWriter(f, fieldnames=["timeframe", "description"])
@@ -80,7 +85,7 @@ class LiveVideoAgent:
                             writer.writeheader()
                         for entry in self.prompt_history[-5:]:  
                             writer.writerow(entry)
-                    self.prompt_history = [] # Clear written history
+                self.prompt_history = [] # Clear written history
 
         except Exception as e:
             print(f"[Error in inference]: {e}")
@@ -107,6 +112,13 @@ class LiveVideoAgent:
                     annotated = self.video_output.overlay_text(frame_to_render, caption, position=(10, 30))
                     self.video_output.render(annotated)
 
+                    if self.save_video and self.ffmpeg_process:
+                        try:
+                            np_frame = cudaToNumpy(annotated)
+                            self.ffmpeg_process.stdin.write(np_frame.astype(np.uint8).tobytes())
+                        except Exception as e:
+                            print(f"[FFmpeg] Error writing frame {e}")
+                        
                 except Exception as e:
                     print(f"[Display] Render error: {e}")
                     import traceback
@@ -115,19 +127,34 @@ class LiveVideoAgent:
                 print("[Display] Cannot find valid frame to render")
                 time.sleep(1)
 
-            time.sleep(0.15)
+            time.sleep(0.1)
 
     def start(self):
         """Start live video processing."""
         print("[LiveVideoAgent] Starting...")
         self.running = True
+        if self.save_video:
+            self.ffmpeg_process = subprocess.Popen([
+                'ffmpeg', '-y', '-f', 'rawvideo',
+                '-vcodec', 'rawvideo',
+                '-pix_fmt', 'rgb24',
+                '-s', f'{self.video_output.width}x{self.video_output.height}',
+                '-r', str(self.fps),
+                '-i', '-',
+                '-an',
+                '-vcodec', 'libx264',
+                '-pix_fmt', 'yuv420p',
+                self.video_path
+            ], stdin=subprocess.PIPE)
         self.video_source.start(self.on_frame)
-
-
+        
     def stop(self):
         """Stop all processes."""
         print("[LiveVideoAgent] Stopping...")
         self.running = False
         self.video_source.stop()
+        if self.save_video and self.ffmpeg_process:
+            self.ffmpeg_process.stdin.close()
+            self.ffmpeg_process.wait()
         if self.display_thread and self.display_thread.is_alive():
             self.display_thread.join(timeout=1)
