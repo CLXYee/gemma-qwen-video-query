@@ -12,7 +12,6 @@ class PyDisplay:
         self.clock = pygame.time.Clock()
 
     def render(self, cuda_img):
-        # Copy to CPU
         img = cudaToNumpy(cuda_img)
         cudaDeviceSynchronize()
 
@@ -20,7 +19,8 @@ class PyDisplay:
         if img.dtype != np.uint8:
             img = (img*255).astype(np.uint8)
 
-        # UYVY or other formats may need conversion; assume RGB for now
+        # UYVY or other formats may need conversion
+        # Using RGB for now
         surf = pygame.surfarray.make_surface(np.flipud(np.rot90(img)))
         self.screen.blit(surf, (0,0))
         pygame.display.flip()

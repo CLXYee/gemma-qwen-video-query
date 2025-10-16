@@ -79,7 +79,6 @@ class VideoSource:
             while self.running:
                 try:
                     if self._busy:
-                        # Skip this frame — inference still running
                         _ = self.cap.Capture(timeout=300)
                         time.sleep(interval)
                         continue
@@ -119,7 +118,7 @@ class VideoSource:
             self.thread.join()
         print("[VideoSource] Stopped.")
 
-
+# Using display.py->PyVideoOutput instead
 class VideoOutput:
     """
     Display frames and overlay text using jetson-utils.

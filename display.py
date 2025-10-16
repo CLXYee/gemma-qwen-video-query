@@ -6,7 +6,7 @@ from utils.utils import cudaToNumpy
 from utils.vision import PyDisplay
 from utils.image import wrap_text
 
-class PyVideoSource:
+class VideoSource:
     """
     Capture images from a camera or video stream, with automatic reconnect.
     """
@@ -19,7 +19,6 @@ class PyVideoSource:
         self.return_tensors = return_tensors
 
         self.stream = None
-        self.first_frame_saved = False
         self.open_stream()
 
     def open_stream(self):
@@ -57,13 +56,6 @@ class PyVideoSource:
         while retries < 5:
             img = self.stream.Capture(format='rgb8', timeout=2500)
             if img is not None:
-                # Save first frame locally
-                if not self.first_frame_saved:
-                    from jetson_utils import saveImage
-                    saveImage("capture1.png",img)
-                    logging.info("[VideoSource] Saved first frame as capture1.png")
-                    self.first_frame_saved = True
-
                 # Convert to desired format
                 if self.return_tensors == 'pt':
                     img = torch.as_tensor(img, device='cuda')
@@ -77,7 +69,7 @@ class PyVideoSource:
                 retries += 1
         return None
 
-class PyVideoOutput:
+class VideoOutput:
     """
     Display images safely using PySafeDisplay (Pygame backend)
     """
@@ -107,24 +99,20 @@ class PyVideoOutput:
             print(f"[VideoOutput] Text overlay error: {e}")
             return frame
 
-# For diagnosing video output issues
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # We are using camera.py->VideoSource in the main program instead
-    source = PyVideoSource(video_input='/dev/video0', video_input_width=1280, video_input_height=720)
+    source = VideoSource(video_input='/dev/video0', video_input_width=1280, video_input_height=720)
     # Video output using pygame
-    output = PyVideoOutput(width=1280, height=720)
+    output = VideoOutput(width=1280, height=720)
 
     logging.info("[MAIN] Starting capture and display loop...")
-
-    try:
-        while True:
-            frame = source.capture()
-            if frame is not None:
-                output.render(frame)
-            else:
-                logging.warning("[MAIN] No frame captured, trying to reconnect...")
-                source.reconnect()
-    except KeyboardInterrupt:
-        logging.info("[MAIN] Exiting...")
+    
+    while True:
+        frame = source.capture()
+        if frame is not None:
+            output.render(frame)
+        else:
+            logging.warning("[MAIN] No frame captured, trying to reconnect...")
+            source.reconnect()

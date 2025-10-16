@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+# Reference: https://github.com/dusty-nv/jetson-utils/blob/master/python/jetson_utils/types/image.py
 import io
 import PIL
 import logging
 import torch
+import requests
 import numpy as np
 from jetson_utils import cudaImage, cudaFromNumpy
 
