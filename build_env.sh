@@ -180,19 +180,44 @@ echo "[DONE] jetson-utils installation complete."
 
 
 # ------------------------------------------------------
-# Install remaining dependencies
+# Install Python dependencies 
 # ------------------------------------------------------
-if [ ! -f "$REQUIREMENTS_FILE" ]; then
-cat > $REQUIREMENTS_FILE <<EOL
-transformers
-numpy
-Pillow
-pygame
-argparse
-EOL
+echo "----------------------------------------------------"
+echo "Installing Python dependencies..."
+echo "----------------------------------------------------"
+
+if [[ "$PYTHON_VERSION" == "3.8" ]]; then
+    PYTHON_PACKAGES=(
+        "transformers==4.57.0"
+        "numpy==1.26.4"
+        "Pillow==11.3.0"
+        "pygame==2.6.1"
+    )
+elif [[ "$PYTHON_VERSION" == "3.10" ]]; then
+    PYTHON_PACKAGES=(
+        "transformers==4.57.0"
+        "numpy==1.26.4"
+        "Pillow==11.3.0"
+        "pygame==2.6.1"
+    )
+else
+    # fallback for other Python versions
+    PYTHON_PACKAGES=(
+        "transformers"
+        "numpy"
+        "Pillow"
+        "pygame"
+    )
 fi
 
-pip install -r $REQUIREMENTS_FILE --extra-index-url $JETSON_INDEX_URL
+for pkg in "${PYTHON_PACKAGES[@]}"; do
+    if [["$pkg" == "torch"* || "$pkg" == "torchvsion"*]]; then
+        pip install "$pkg" --extra-index-url $JETSON_INDEX_URL
+    else
+        pip install "$pkg"
+    fi
+done
+
 pip cache purge || true
 
 # ------------------------------------------------------
