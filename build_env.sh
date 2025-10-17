@@ -25,11 +25,22 @@ echo "----------------------------------------------------"
 echo "🔧 Detecting JetPack and system configuration..."
 echo "----------------------------------------------------"
 
-# Detect JetPack version
+# Detect JetPack / L4T version
 JETPACK_VERSION=""
 if [[ -f /etc/nv_tegra_release ]]; then
-    JETPACK_VERSION=$(grep -oP 'R[0-9]+.[0-9]+' /etc/nv_tegra_release | sed 's/R//')
-    echo "[INFO] Detected JetPack $JETPACK_VERSION"
+    L4T_VERSION=$(grep -oP 'R[0-9]+' /etc/nv_tegra_release | tr -d 'R')
+    echo "[INFO] Detected L4T R${L4T_VERSION}"
+
+    # Map L4T release to JetPack version
+    if (( L4T_VERSION >= 36 )); then
+        JETPACK_VERSION=6
+    elif (( L4T_VERSION >= 34 )); then
+        JETPACK_VERSION=5
+    else
+        JETPACK_VERSION=4
+    fi
+
+    echo "[INFO] Mapped to JetPack $JETPACK_VERSION.x"
 else
     echo "[WARN] JetPack not detected (non-Jetson system?)"
 fi
@@ -43,23 +54,27 @@ fi
 echo "[INFO] CUDA version: $CUDA_VERSION"
 
 # Determine Python version
-if [[ "$JETPACK_VERSION" == "" || "$(echo "$JETPACK_VERSION < 5.1" | bc)" -eq 1 ]]; then
+if (( JETPACK_VERSION < 5 )); then
     PYTHON_VERSION=3.8
-    echo "[INFO] JetPack ≤ 5 → using Python 3.8 (legacy Jetson)"
+    echo "[INFO] JetPack ≤ 4 → using Python 3.8 (legacy Jetson)"
+elif (( JETPACK_VERSION == 5 )); then
+    PYTHON_VERSION=3.8
+    echo "[INFO] JetPack 5 → using Python 3.8"
 else
     PYTHON_VERSION=3.10
-    echo "[INFO] JetPack ≥ 6 → using Python 3.10"
+    echo "[INFO] JetPack 6 → using Python 3.10"
 fi
 
 # Determine PyPI source
 case $JETPACK_VERSION in
-    6.*) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp6/cu126" ;;
-    5.*) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp5/cu118" ;;
-    4.*) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp4/cu102" ;;
-    *)   JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp6/cu126" ;;
+    6) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp6/cu126" ;;
+    5) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp5/cu114" ;;
+    4) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp4/cu102" ;;
+    *) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp6/cu126" ;;
 esac
 
 echo "[INFO] Using Jetson PyPI index: $JETSON_INDEX_URL"
+
 
 # ------------------------------------------------------
 # DRY-RUN MODE
