@@ -1,157 +1,164 @@
 #!/bin/bash
 # =======================================================
-# Jetson Environment Builder for Gemma3 Video Agent
-# Smart version (auto-detects JetPack/CUDA/Python, links deps)
+# Jetson Environment Builder (Gemma3 Video Query)
+# Auto-detects JetPack / CUDA / Python version
+# Supports reusing existing envs + dry-run mode
 # =======================================================
 
-set -e  # Exit on error
-
+set -e
 ENV_NAME="gemma3"
-PYTHON_VERSION=${1:-3.10}
 REQUIREMENTS_FILE="requirements.txt"
 JETSON_PYPI_BASE="https://pypi.jetson-ai-lab.io"
 
-echo "----------------------------------------------------"
-echo "Setting up environment: $ENV_NAME (Python $PYTHON_VERSION)"
-echo "----------------------------------------------------"
+DRY_RUN=false
 
-# --------------------------
-#  Create environment
-# --------------------------
-if command -v conda &> /dev/null; then
-    echo "[INFO] Conda detected → creating environment..."
-    conda create -y -n $ENV_NAME python=$PYTHON_VERSION
-    eval "$(conda shell.bash hook)"
-    conda activate $ENV_NAME
-else
-    echo "[INFO] Using Python venv..."
-    python$PYTHON_VERSION -m venv $ENV_NAME
-    source $ENV_NAME/bin/activate
-fi
+# Parse arguments
+for arg in "$@"; do
+    case $arg in
+        --check)
+            DRY_RUN=true
+            ;;
+    esac
+done
 
-pip install --upgrade pip wheel setuptools
-
-# --------------------------
-#  Detect JetPack / CUDA
-# --------------------------
 echo "----------------------------------------------------"
-echo "Detecting JetPack and CUDA versions..."
+echo "🔧 Detecting JetPack and system configuration..."
 echo "----------------------------------------------------"
 
+# Detect JetPack version
 JETPACK_VERSION=""
-CUDA_VERSION="cpu"
-
 if [[ -f /etc/nv_tegra_release ]]; then
     JETPACK_VERSION=$(grep -oP 'R[0-9]+.[0-9]+' /etc/nv_tegra_release | sed 's/R//')
     echo "[INFO] Detected JetPack $JETPACK_VERSION"
 else
-    echo "[WARN] Could not detect JetPack version (non-Jetson system?)"
+    echo "[WARN] JetPack not detected (non-Jetson system?)"
 fi
 
+# Detect CUDA
 if command -v nvcc &> /dev/null; then
     CUDA_VERSION=$(nvcc --version | grep release | awk '{print $6}' | cut -c2-)
-    echo "[INFO] CUDA detected: $CUDA_VERSION"
 else
-    echo "[INFO] CUDA not found, defaulting to CPU mode."
+    CUDA_VERSION="cpu"
+fi
+echo "[INFO] CUDA version: $CUDA_VERSION"
+
+# Determine Python version
+if [[ "$JETPACK_VERSION" == "" || "$(echo "$JETPACK_VERSION < 5.1" | bc)" -eq 1 ]]; then
+    PYTHON_VERSION=3.8
+    echo "[INFO] JetPack ≤ 5 → using Python 3.8 (legacy Jetson)"
+else
+    PYTHON_VERSION=3.10
+    echo "[INFO] JetPack ≥ 6 → using Python 3.10"
 fi
 
-# --------------------------
-#  Choose dependency index
-# --------------------------
+# Determine PyPI source
 case $JETPACK_VERSION in
-    6.*)
-        JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp6/cu126"
-        ;;
-    5.*)
-        JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp5/cu118"
-        ;;
-    *)
-        JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp6/cu126"
-        ;;
+    6.*) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp6/cu126" ;;
+    5.*) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp5/cu118" ;;
+    4.*) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp4/cu102" ;;
+    *)   JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp6/cu126" ;;
 esac
 
 echo "[INFO] Using Jetson PyPI index: $JETSON_INDEX_URL"
 
-# --------------------------
-#  Check existing deps
-# --------------------------
-SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
-SYSTEM_SITE=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])" 2>/dev/null || echo "/usr/lib/python$PYTHON_VERSION/site-packages")
-
-echo "----------------------------------------------------"
-echo "Checking for system-installed Jetson dependencies..."
-echo "----------------------------------------------------"
-
-PACKAGES=("torch" "torchvision" "jetson_utils")
-for PKG in "${PACKAGES[@]}"; do
-    if python3 -c "import $PKG" &> /dev/null; then
-        PKG_PATH=$(python3 -c "import $PKG, os; print(os.path.dirname($PKG.__file__))")
-        if [ ! -d "$SITE_PACKAGES/$PKG" ]; then
-            echo "[LINK] Linking $PKG from $PKG_PATH → $SITE_PACKAGES"
-            ln -s "$PKG_PATH" "$SITE_PACKAGES/$PKG"
-        else
-            echo "[SKIP] $PKG already linked in environment"
-        fi
+# ------------------------------------------------------
+# DRY-RUN MODE
+# ------------------------------------------------------
+if $DRY_RUN; then
+    echo "----------------------------------------------------"
+    echo "🧪 DRY-RUN MODE ENABLED — no changes will be made"
+    echo "----------------------------------------------------"
+    echo "Would perform the following actions:"
+    echo " - Create or reuse environment '$ENV_NAME'"
+    echo " - Python version: $PYTHON_VERSION"
+    echo " - Install PyTorch for CUDA=$CUDA_VERSION"
+    if [[ "$PYTHON_VERSION" == "3.8" ]]; then
+        echo "   (Ultralytics prebuilt wheel)"
     else
-        echo "[INSTALL] $PKG not found system-wide → will install."
+        echo "   (PyTorch official CUDA wheel via $JETSON_INDEX_URL)"
     fi
-done
+    echo " - Clone and build jetson-utils from dusty-nv/jetson-utils"
+    echo " - Install Python dependencies from requirements.txt"
+    echo "----------------------------------------------------"
+    echo "✅ Safe to run without --check to perform actual installation"
+    exit 0
+fi
 
-# --------------------------
-#  Install PyTorch (based on CUDA + Python version)
-# --------------------------
+# ------------------------------------------------------
+# Create or reuse environment
+# ------------------------------------------------------
+if command -v conda &> /dev/null; then
+    eval "$(conda shell.bash hook)"
+    if conda env list | grep -q "$ENV_NAME"; then
+        echo "[INFO] Environment '$ENV_NAME' already exists. Reusing..."
+        conda activate $ENV_NAME
+    else
+        echo "[INFO] Creating new Conda environment '$ENV_NAME'..."
+        conda create -y -n $ENV_NAME python=$PYTHON_VERSION
+        conda activate $ENV_NAME
+    fi
+else
+    if [[ -d "$ENV_NAME" ]]; then
+        echo "[INFO] Python venv '$ENV_NAME' already exists. Reusing..."
+        source $ENV_NAME/bin/activate
+    else
+        echo "[INFO] Creating new venv '$ENV_NAME'..."
+        python$PYTHON_VERSION -m venv $ENV_NAME
+        source $ENV_NAME/bin/activate
+    fi
+fi
+
+pip install --upgrade pip wheel setuptools
+
+# ------------------------------------------------------
+# Install PyTorch dynamically
+# ------------------------------------------------------
 echo "----------------------------------------------------"
-echo "Installing PyTorch (based on CUDA=$CUDA_VERSION, Python=$PYTHON_VERSION)..."
+echo "Installing PyTorch for CUDA=$CUDA_VERSION / Python=$PYTHON_VERSION"
 echo "----------------------------------------------------"
 
-if ! python -c "import torch" &> /dev/null; then
-    PYVER_SHORT=$(python -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')")
-    if [[ "$PYVER_SHORT" == "3.8" ]]; then
-        echo "[INFO] Detected Python 3.8 → using Ultralytics prebuilt wheels"
+if python -c "import torch" &> /dev/null; then
+    echo "[OK] PyTorch already installed. Linking existing build."
+else
+    if [[ "$PYTHON_VERSION" == "3.8" ]]; then
+        echo "[INFO] Using Ultralytics prebuilt PyTorch wheels for Jetson (Python 3.8)"
         pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.2.0-cp38-cp38-linux_aarch64.whl
         pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torchvision-0.17.2+c1d70fe-cp38-cp38-linux_aarch64.whl
     else
         case $CUDA_VERSION in
-            12.6)
-                pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu126
-                ;;
-            11.*)
-                pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118
-                ;;
-            cpu)
-                pip install torch torchvision torchaudio
-                ;;
-            *)
-                echo "[WARN] Unknown CUDA version ($CUDA_VERSION). Installing default PyTorch..."
-                pip install torch torchvision torchaudio
-                ;;
+            12.*) pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu126 ;;
+            11.*) pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118 ;;
+            cpu)  pip install torch torchvision torchaudio ;;
+            *)    pip install torch torchvision torchaudio ;;
         esac
     fi
-else
-    echo "[INFO] torch already available in environment."
 fi
 
-# --------------------------
-#  Ensure jetson-utils video features
-# --------------------------
+# ------------------------------------------------------
+# Install jetson-utils from GitHub if missing
+# ------------------------------------------------------
 echo "----------------------------------------------------"
-echo "Ensuring jetson-utils with videoSource/videoOutput..."
+echo "Installing jetson-utils from dusty-nv/jetson-utils..."
 echo "----------------------------------------------------"
 
-if ! python -c "import jetson_utils; from jetson_utils import videoSource, videoOutput" &> /dev/null; then
-    echo "[INSTALL] Installing compatible jetson-utils from $JETSON_INDEX_URL"
-    pip install --extra-index-url $JETSON_INDEX_URL jetson-utils
+if python -c "import jetson_utils; from jetson_utils import videoSource, videoOutput" &> /dev/null; then
+    echo "[OK] jetson-utils already installed and functional."
 else
-    echo "[OK] jetson-utils already includes videoSource/videoOutput"
+    echo "[BUILD] Building jetson-utils from source..."
+    git clone --depth=1 https://github.com/dusty-nv/jetson-utils.git /tmp/jetson-utils
+    cd /tmp/jetson-utils
+    mkdir -p build && cd build
+    cmake ../
+    make -j$(nproc)
+    sudo make install
+    sudo ldconfig
+    cd -
+    echo "[DONE] jetson-utils successfully installed."
 fi
 
-# --------------------------
-#  Install remaining dependencies
-# --------------------------
-echo "----------------------------------------------------"
-echo "Installing remaining dependencies..."
-echo "----------------------------------------------------"
-
+# ------------------------------------------------------
+# Install remaining dependencies
+# ------------------------------------------------------
 if [ ! -f "$REQUIREMENTS_FILE" ]; then
 cat > $REQUIREMENTS_FILE <<EOL
 transformers
@@ -163,29 +170,28 @@ EOL
 fi
 
 pip install -r $REQUIREMENTS_FILE --extra-index-url $JETSON_INDEX_URL
-
-# --------------------------
-#  Cleanup
-# --------------------------
-echo "----------------------------------------------------"
-echo "Cleaning up pip cache..."
-echo "----------------------------------------------------"
 pip cache purge || true
 
-# --------------------------
-#  Finish
-# --------------------------
+# ------------------------------------------------------
+# Summary
+# ------------------------------------------------------
 echo "----------------------------------------------------"
-echo "Environment setup complete!"
-echo "To activate, run:"
+echo "✅ Environment setup complete!"
+echo "----------------------------------------------------"
+echo "JetPack:   ${JETPACK_VERSION:-Unknown}"
+echo "CUDA:      ${CUDA_VERSION}"
+python -c "import sys; print(f'Python:   {sys.version.split()[0]}')"
+python -c "import torch; print(f'Torch:    {torch.__version__}')"
+python -c "import jetson_utils; print(f'jetson-utils: {jetson_utils.__version__}')"
+echo "----------------------------------------------------"
+echo "To activate:"
 if command -v conda &> /dev/null; then
-    echo "    conda activate $ENV_NAME"
+    echo "  conda activate $ENV_NAME"
 else
-    echo "    source $ENV_NAME/bin/activate"
+    echo "  source $ENV_NAME/bin/activate"
 fi
 echo
-echo "Then launch:"
-echo "    python video_query.py"
-echo "    python video_query.py --on_video"
-echo "    python video_query.py --model_id google/gemma-3-4b-it"
+echo "Then run:"
+echo "  python video_query.py"
+echo "  python video_query.py --on_video"
 echo "----------------------------------------------------"
