@@ -170,7 +170,7 @@ fi
 
 # Build jetson-utils
 mkdir build && cd build
-cmake ../
+cmake -DPYTHON_EXECUTABLE=$(which python) ../
 make -j$(nproc)
 sudo make install
 sudo ldconfig
