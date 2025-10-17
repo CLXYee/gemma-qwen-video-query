@@ -2,7 +2,6 @@
 # ./build_env.sh
 torch==2.8.0
 transformers==4.57.0
-jetson-utils==1.0.0
 numpy==1.26.4
 Pillow==11.3.0
 pygame==2.6.1
