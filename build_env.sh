@@ -98,27 +98,35 @@ for PKG in "${PACKAGES[@]}"; do
 done
 
 # --------------------------
-#  Install PyTorch
+#  Install PyTorch (based on CUDA + Python version)
 # --------------------------
 echo "----------------------------------------------------"
-echo "Installing PyTorch (based on CUDA=$CUDA_VERSION)..."
+echo "Installing PyTorch (based on CUDA=$CUDA_VERSION, Python=$PYTHON_VERSION)..."
 echo "----------------------------------------------------"
 
 if ! python -c "import torch" &> /dev/null; then
-    case $CUDA_VERSION in
-        12.6)
-            pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu126
-            ;;
-        11.*)
-            pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118
-            ;;
-        cpu)
-            pip install torch torchvision torchaudio
-            ;;
-        *)
-            pip install torch torchvision torchaudio
-            ;;
-    esac
+    PYVER_SHORT=$(python -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')")
+    if [[ "$PYVER_SHORT" == "3.8" ]]; then
+        echo "[INFO] Detected Python 3.8 → using Ultralytics prebuilt wheels"
+        pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.2.0-cp38-cp38-linux_aarch64.whl
+        pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torchvision-0.17.2+c1d70fe-cp38-cp38-linux_aarch64.whl
+    else
+        case $CUDA_VERSION in
+            12.6)
+                pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu126
+                ;;
+            11.*)
+                pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118
+                ;;
+            cpu)
+                pip install torch torchvision torchaudio
+                ;;
+            *)
+                echo "[WARN] Unknown CUDA version ($CUDA_VERSION). Installing default PyTorch..."
+                pip install torch torchvision torchaudio
+                ;;
+        esac
+    fi
 else
     echo "[INFO] torch already available in environment."
 fi
