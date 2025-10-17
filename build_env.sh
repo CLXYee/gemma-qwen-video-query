@@ -138,23 +138,46 @@ fi
 # Install jetson-utils from GitHub if missing
 # ------------------------------------------------------
 echo "----------------------------------------------------"
-echo "Installing jetson-utils from dusty-nv/jetson-utils..."
+echo "Installing jetson-utils from source..."
 echo "----------------------------------------------------"
 
-if python -c "import jetson_utils; from jetson_utils import videoSource, videoOutput" &> /dev/null; then
-    echo "[OK] jetson-utils already installed and functional."
-else
-    echo "[BUILD] Building jetson-utils from source..."
-    git clone --depth=1 https://github.com/dusty-nv/jetson-utils.git /tmp/jetson-utils
-    cd /tmp/jetson-utils
-    mkdir -p build && cd build
-    cmake ../
-    make -j$(nproc)
-    sudo make install
-    sudo ldconfig
-    cd -
-    echo "[DONE] jetson-utils successfully installed."
+# Ensure build tools exist
+sudo apt update
+sudo apt install -y cmake build-essential git python3-dev
+
+WORKDIR=$(pwd)
+cd /tmp
+
+# Remove old partial builds
+if [ -d "jetson-utils" ]; then
+    echo "[INFO] Removing existing jetson-utils folder..."
+    sudo rm -rf jetson-utils
 fi
+git clone --recursive https://github.com/dusty-nv/jetson-utils
+cd jetson-utils
+
+# Ensure jetson-inference exists for dependency prebuild
+if [ ! -d "../jetson-inference" ]; then
+    echo "[INFO] Cloning jetson-inference for dependencies..."
+    git clone --recursive https://github.com/dusty-nv/jetson-inference ../jetson-inference
+fi
+
+# Run the CMakePreBuild.sh script to install missing dependencies
+if [ -f "../jetson-inference/CMakePreBuild.sh" ]; then
+    echo "[INFO] Running jetson-inference/CMakePreBuild.sh..."
+    bash ../jetson-inference/CMakePreBuild.sh
+fi
+
+# Build jetson-utils
+mkdir build && cd build
+cmake ../
+make -j$(nproc)
+sudo make install
+sudo ldconfig
+
+cd $WORKDIR
+echo "[DONE] jetson-utils installation complete."
+
 
 # ------------------------------------------------------
 # Install remaining dependencies
