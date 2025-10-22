@@ -28,7 +28,9 @@ export USE_PYTORCH_QNNPACK=0
 export USE_MKLDNN=0
 export USE_FBGEMM=0
 export USE_OPENMP=1
-export TORCH_CUDA_ARCH_LIST="$ARCH"
+export CMAKE_CUDA_ARCHITECTURES=72
+export TORCH_CUDA_ARCH_LIST="7.2"
+export CMAKE_CUDA_COMPILER=/usr/local/cuda-11.8/bin/nvcc
 
 # --- Swap setup (recommended for memory) ---
 if [ ! -f /swapfile ]; then
