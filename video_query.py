@@ -61,6 +61,11 @@ def main():
         help="Save video with VLM output"
     )
     parser.add_argument(
+        "--api", 
+        action="store_true",
+        help="Use model api for inference"
+    )
+    parser.add_argument(
         "--video_path", 
         type=str,
         default="output.mp4",
@@ -107,8 +112,13 @@ def main():
     # -----------------------------
     print(f"[INFO] Loading model and initializing video source: {args.source}")
     if "gemma" in args.model_id:
-        from model import Gemma3ImageDescriber
-        describer = Gemma3ImageDescriber(model_id = args.model_id)
+        if args.api:
+            from model import Gemma3ImageDescriberApi
+            print("[INFO] Using API")
+            describer = Gemma3ImageDescriberApi(model_id = args.model_id)
+        else:
+            from model import Gemma3ImageDescriber
+            describer = Gemma3ImageDescriber(model_id = args.model_id)
     elif "Qwen" in args.model_id:
         from model import QwenImageDescriber
         describer = QwenImageDescriber(model_id=args.model_id)

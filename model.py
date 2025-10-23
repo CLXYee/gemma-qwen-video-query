@@ -1,6 +1,6 @@
 #model.py
 import torch
-from transformers import AutoProcessor, Gemma3ForConditionalGeneration, AutoModelForImageTextToText
+from transformers import pipeline, AutoProcessor, Gemma3ForConditionalGeneration, AutoModelForImageTextToText
 
 class Gemma3ImageDescriber():
     """
@@ -57,10 +57,45 @@ class Gemma3ImageDescriber():
         decoded = self.processor.decode(generation, skip_special_tokens=True)
         print(decoded)
         return decoded
-    
-    #add api usage
 
-#
+class Gemma3ImageDescriberApi():
+    """
+    Load and configure gemma3 model
+    """
+    def __init__(self, model_id="google/gemma-3-4b-it", device="cuda:0"):
+        self.model_id = model_id
+        self.device = device
+
+    def describe_frame(self, image_path, prompt=None, max_new_tokens=16):
+        pipe = pipeline(
+            "image-text-to-text",
+            model=self.model_id,
+            device=self.device,
+            torch_dtype=torch.bfloat16
+        )
+
+        if prompt is None:
+            prompt = "Describe the image precisely. "
+
+        messages = [
+            {
+                "role": "system",
+                "content": [{"type": "text", "text": "You are an open vocabulary detection agent. Output within 10 words. Do not provide additional explanations"}]
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image_path},
+                    {"type": "text", "text": prompt}
+                ]
+            }
+        ]
+
+        output = pipe(text=messages, max_new_tokens=max_new_tokens)
+        decoded = output[0]["generated_text"][-1]["content"]
+        print(decoded)
+        return decoded
+
 class QwenImageDescriber():
     def __init__(self, model_id="Qwen/Qwen2.5-VL-7B-Instruct", device="cuda:0"):
         self.model_id = model_id
