@@ -59,8 +59,10 @@ echo "[INFO] CUDA version: $CUDA_VERSION"
 # =======================================================
 if (( JETPACK_VERSION < 5 )); then
     PYTHON_VERSION=3.8
+    echo " [WARNING] Using Python 3.8. Newer transformers version is incompatible with Python 3.8 but is required for Gemma and Qwen. Please upgrade to a newer version."
 elif (( JETPACK_VERSION == 5 )); then
-    PYTHON_VERSION=3.8
+    PYTHON_VERSION=3.10 
+    echo " [WARNING] Using Python 3.10 for Jetpack 5.x. If using CUDA, please ensure to use a compatible torch and torchvision version."
 else
     PYTHON_VERSION=3.10
 fi
@@ -71,7 +73,7 @@ echo "[INFO] Target Python version: $PYTHON_VERSION"
 # =======================================================
 case $JETPACK_VERSION in
     6) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp6/cu126" ;;
-    5) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp5/cu114" ;;
+    5) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp5/cu118" ;;
     4) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp4/cu102" ;;
     *) JETSON_INDEX_URL="$JETSON_PYPI_BASE/jp6/cu126" ;;
 esac
@@ -89,6 +91,7 @@ if $DRY_RUN; then
     echo " - Python version: $PYTHON_VERSION"
     echo " - CUDA version: $CUDA_VERSION"
     echo " - Install verified wheels for torch/transformers/numpy"
+    echo " Check if the information are correct before running the script"
     echo "----------------------------------------------------"
     exit 0
 fi

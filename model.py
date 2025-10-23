@@ -57,6 +57,8 @@ class Gemma3ImageDescriber():
         decoded = self.processor.decode(generation, skip_special_tokens=True)
         print(decoded)
         return decoded
+    
+    #add api usage
 
 #
 class QwenImageDescriber():

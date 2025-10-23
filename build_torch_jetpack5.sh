@@ -7,8 +7,8 @@ set -e
 # ==========================================
 
 # --- Configurable versions ---
-PYTORCH_VERSION="v2.1.0"     # can also try v2.2.0
-TORCHVISION_VERSION="v0.16.0"
+PYTORCH_VERSION="v2.2.0"     # can also try v2.2.0
+TORCHVISION_VERSION="v0.17.0"
 ARCH="7.2"                   # Xavier (for Orin use 8.7)
 
 # --- Environment setup ---
@@ -28,6 +28,8 @@ export USE_PYTORCH_QNNPACK=0
 export USE_MKLDNN=0
 export USE_FBGEMM=0
 export USE_OPENMP=1
+export USE_FFMPEG=1
+export USE_OPENCV=1
 export CMAKE_CUDA_ARCHITECTURES=72
 export TORCH_CUDA_ARCH_LIST="7.2"
 export CMAKE_CUDA_COMPILER=/usr/local/cuda-11.8/bin/nvcc
