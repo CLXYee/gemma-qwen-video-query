@@ -43,7 +43,7 @@ class Gemma3ImageDescriber():
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.model = Gemma3ForConditionalGeneration.from_pretrained(
             model_id,
-            quantization_config = self.quantization_config
+            quantization_config = self.quantization_config,
             torch_dtype=torch.bfloat16,
             device_map=device
         ).cuda().eval()
@@ -148,7 +148,7 @@ class QwenImageDescriber():
         
         # Load processor and model
         self.model=AutoModelForImageTextToText.from_pretrained(
-            self.model_id, quantization_config = self.quantization_config
+            self.model_id, quantization_config = self.quantization_config,
             torch_dtype=torch.bfloat16, device_map="auto"
         )
         self.processor = AutoProcessor.from_pretrained(self.model_id)
