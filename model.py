@@ -1,19 +1,49 @@
 #model.py
 import torch
 from transformers import pipeline, AutoProcessor, Gemma3ForConditionalGeneration, AutoModelForImageTextToText
+from transformers import BitsAndBytesConfig
+from torchvision import transforms
+from distutils.version import LooseVersion
+from PIL import Image
+import numpy as np
+
+def cudaToImg(image):
+    if isinstance(image,np.ndarray):
+        if image.ndim==3 and image.shape[2]==3:
+            image=image[:,:,::-1]
+        image = Image.fromarray(image.astype('uint8'))
+        return image
+    elif isinstance(image, torch.Tensor):
+        return transforms.ToPILImage()((image*255).clamp(0,255).byte)
+    elif isinstance(image,str):
+        return Image.open(image).convert("RGB")
+    else:
+        raise TypeError(f"Unsupported image type: {type(image)}")
 
 class Gemma3ImageDescriber():
     """
     Load and configure gemma3 model
     """
-    def __init__(self, model_id="google/gemma-3-4b-it", device="cuda:0"):
+    def __init__(self, model_id="google/gemma-3-4b-it", device="cuda:0", quantization_config = None):
         self.model_id = model_id
         self.device = device
+
+        if quantization_config:
+            print("[INFO] Using 8 bit quantization model")
+            self.quantization_config = BitsAndBytesConfig(
+                load_in_8bit = True,
+                bnb_8bit_quant_type="nf8",
+                bnb_8bit_use_double_quant = True,
+                bnb_8bit_compute_dtype=torch.bfloat16
+            )
+        else:
+            self.quantization_config = None
         
         # Load processor and model
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.model = Gemma3ForConditionalGeneration.from_pretrained(
             model_id,
+            quantization_config = self.quantization_config
             torch_dtype=torch.bfloat16,
             device_map=device
         ).cuda().eval()
@@ -21,6 +51,10 @@ class Gemma3ImageDescriber():
     def describe_frame(self, image_path, prompt=None, max_new_tokens=16):
         if prompt is None:
             prompt = "Describe the image precisely. "
+
+        if LooseVersion(torch.__version__) < LooseVersion("2.8.0"):
+            print("[INFO] Converting CUDA Image to PIL")
+            image_path = cudaToImg(image_path)
         
         messages = [
             {
@@ -97,14 +131,25 @@ class Gemma3ImageDescriberApi():
         return decoded
 
 class QwenImageDescriber():
-    def __init__(self, model_id="Qwen/Qwen2.5-VL-7B-Instruct", device="cuda:0"):
+    def __init__(self, model_id="Qwen/Qwen2.5-VL-7B-Instruct", device="cuda:0", quantization_config=None):
         self.model_id = model_id
         self.device = device
+
+        if quantization_config:
+            print("[INFO] Using 8 bit quantization model")
+            self.quantization_config = BitsAndBytesConfig(
+                load_in_8bit = True,
+                bnb_8bit_quant_type="nf8",
+                bnb_8bit_use_double_quant = True,
+                bnb_8bit_compute_dtype=torch.bfloat16
+            )
+        else:
+            self.quantization_config = None
         
         # Load processor and model
-        #self.model = AutoModelForImageTextToText.from_pretrained(
         self.model=AutoModelForImageTextToText.from_pretrained(
-            self.model_id, torch_dtype=torch.bfloat16, device_map="auto"
+            self.model_id, quantization_config = self.quantization_config
+            torch_dtype=torch.bfloat16, device_map="auto"
         )
         self.processor = AutoProcessor.from_pretrained(self.model_id)
         self.processor.tokenizer.padding_side = "left"
@@ -125,14 +170,14 @@ class QwenImageDescriber():
                 "content": [
                     {
                         "type": "image",
-                        "image": image_path,
+                        "image": cudaToImg(image_path),
                     },
                     {"type": "text", "text": system_prompt+prompt},
                 ],
             }
         ]
 
-        # Preparation for inference
+        # Preparation for inference 
         inputs = self.processor.apply_chat_template(
             messages,
             tokenize=True,
@@ -151,6 +196,6 @@ class QwenImageDescriber():
         )[0]
         if "addCriterion" in output_text:
             output_text = output_text.split("addCriterion")[1]
-        
+        # Sometimes empty inference output
         print(output_text)
         return output_text

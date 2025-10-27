@@ -50,6 +50,11 @@ def main():
         help="Save VLM output as a csv"
     )
     parser.add_argument(
+        "--quantize",
+        action="store_true",
+        help="Enable live video display and caption rendering"
+    )
+    parser.add_argument(
         "--output_file",
         type=str,
         default="prompt_history.csv",
@@ -115,13 +120,13 @@ def main():
         if args.api:
             from model import Gemma3ImageDescriberApi
             print("[INFO] Using API")
-            describer = Gemma3ImageDescriberApi(model_id = args.model_id)
+            describer = Gemma3ImageDescriberApi(model_id = args.model_id, quantization_config=args.quantize)
         else:
             from model import Gemma3ImageDescriber
-            describer = Gemma3ImageDescriber(model_id = args.model_id)
+            describer = Gemma3ImageDescriber(model_id = args.model_id, quantization_config=args.quantize)
     elif "Qwen" in args.model_id:
         from model import QwenImageDescriber
-        describer = QwenImageDescriber(model_id=args.model_id)
+        describer = QwenImageDescriber(model_id=args.model_id, quantization_config=args.quantize)
     else:
         print("[Warning] Model not available yet. Stay tuned! For now, please use vision-language-models from the Gemma family")
         return
