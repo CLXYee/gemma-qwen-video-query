@@ -1,24 +1,10 @@
 #model.py
 import torch
 from transformers import pipeline, AutoProcessor, Gemma3ForConditionalGeneration, AutoModelForImageTextToText
-from transformers import BitsAndBytesConfig
 from torchvision import transforms
 from distutils.version import LooseVersion
 from PIL import Image
 import numpy as np
-
-def cudaToImg(image):
-    if isinstance(image,np.ndarray):
-        if image.ndim==3 and image.shape[2]==3:
-            image=image[:,:,::-1]
-        image = Image.fromarray(image.astype('uint8'))
-        return image
-    elif isinstance(image, torch.Tensor):
-        return transforms.ToPILImage()((image*255).clamp(0,255).byte)
-    elif isinstance(image,str):
-        return Image.open(image).convert("RGB")
-    else:
-        raise TypeError(f"Unsupported image type: {type(image)}")
 
 class Gemma3ImageDescriber():
     """
@@ -29,13 +15,19 @@ class Gemma3ImageDescriber():
         self.device = device
 
         if quantization_config:
-            print("[INFO] Using 8 bit quantization model")
-            self.quantization_config = BitsAndBytesConfig(
-                load_in_8bit = True,
-                bnb_8bit_quant_type="nf8",
-                bnb_8bit_use_double_quant = True,
-                bnb_8bit_compute_dtype=torch.bfloat16
-            )
+            try:
+                print("[INFO] Using 8 bit quantization model")
+                from transformers import BitsAndBytesConfig
+                self.quantization_config = BitsAndBytesConfig(
+                    load_in_8bit = True,
+                    bnb_8bit_quant_type="nf8",
+                    bnb_8bit_use_double_quant = True,
+                    bnb_8bit_compute_dtype=torch.bfloat16
+                )
+            except:
+                print("[WARNING] Quantization not available! Please ensure that bitsandbytes is installed and current device have CUDA >= 11.8")
+                print("[WARNING] Switching to non-quantized mode")
+                self.quantization_config = None
         else:
             self.quantization_config = None
         
@@ -47,6 +39,19 @@ class Gemma3ImageDescriber():
             torch_dtype=torch.bfloat16,
             device_map=device
         ).cuda().eval()
+
+    def cudaToImg(self, image):
+        if isinstance(image,np.ndarray):
+            if image.ndim==3 and image.shape[2]==3:
+                image=image[:,:,::-1]
+            image = Image.fromarray(image.astype('uint8'))
+            return image
+        elif isinstance(image, torch.Tensor):
+            return transforms.ToPILImage()((image*255).clamp(0,255).byte)
+        elif isinstance(image,str):
+            return Image.open(image).convert("RGB")
+        else:
+            raise TypeError(f"Unsupported image type: {type(image)}")
     
     def describe_frame(self, image_path, prompt=None, max_new_tokens=16):
         if prompt is None:
@@ -54,7 +59,7 @@ class Gemma3ImageDescriber():
 
         if LooseVersion(torch.__version__) < LooseVersion("2.8.0"):
             print("[INFO] Converting CUDA Image to PIL")
-            image_path = cudaToImg(image_path)
+            image_path = self.cudaToImg(image_path)
         
         messages = [
             {
@@ -136,13 +141,19 @@ class QwenImageDescriber():
         self.device = device
 
         if quantization_config:
-            print("[INFO] Using 8 bit quantization model")
-            self.quantization_config = BitsAndBytesConfig(
-                load_in_8bit = True,
-                bnb_8bit_quant_type="nf8",
-                bnb_8bit_use_double_quant = True,
-                bnb_8bit_compute_dtype=torch.bfloat16
-            )
+            try:
+                print("[INFO] Using 8 bit quantization model")
+                from transformers import BitsAndBytesConfig
+                self.quantization_config = BitsAndBytesConfig(
+                    load_in_8bit = True,
+                    bnb_8bit_quant_type="nf8",
+                    bnb_8bit_use_double_quant = True,
+                    bnb_8bit_compute_dtype=torch.bfloat16
+                )
+            except:
+                print("[WARNING] Quantization not available! Please ensure that bitsandbytes is installed and current device have CUDA >= 11.8")
+                print("[WARNING] Switching to non-quantized mode")
+                self.quantization_config = None
         else:
             self.quantization_config = None
         
@@ -160,6 +171,19 @@ class QwenImageDescriber():
         self.model.generation_config.image_token_id = pad_id
         self.model.generation_config.video_token_id = eos_id
 
+    def cudaToImg(self, image):
+        if isinstance(image,np.ndarray):
+            if image.ndim==3 and image.shape[2]==3:
+                image=image[:,:,::-1]
+            image = Image.fromarray(image.astype('uint8'))
+            return image
+        elif isinstance(image, torch.Tensor):
+            return transforms.ToPILImage()((image*255).clamp(0,255).byte)
+        elif isinstance(image,str):
+            return Image.open(image).convert("RGB")
+        else:
+            raise TypeError(f"Unsupported image type: {type(image)}")
+    
     def describe_frame(self, image_path, prompt=None, max_new_tokens=16):
         system_prompt = "You are an open vocabulary detection agent. Output within 10 words. Do not provide additional explanations. "
         if prompt is None:
@@ -170,7 +194,7 @@ class QwenImageDescriber():
                 "content": [
                     {
                         "type": "image",
-                        "image": cudaToImg(image_path),
+                        "image": self.cudaToImg(image_path),
                     },
                     {"type": "text", "text": system_prompt+prompt},
                 ],
@@ -196,6 +220,6 @@ class QwenImageDescriber():
         )[0]
         if "addCriterion" in output_text:
             output_text = output_text.split("addCriterion")[1]
-        # Sometimes empty inference output
+        
         print(output_text)
         return output_text
