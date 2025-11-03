@@ -17,11 +17,9 @@ It uses CUDA-accelerated inference and a lightweight **Pygame display backend** 
 
 ## 🧩 Environment Setup
 
-> Make sure you are using **JetPack 6.x (Ubuntu 22.04, CUDA 12.2)** or higher.
-
 ### 1. Clone this repository
 ```bash
-git clone https://github.com/CLXYee/gemma3-video-agent.git
+git clone https://github.com/CLXYee/gemma-qwen-video-query.git
 cd gemma3-video-agent
 ````
 
