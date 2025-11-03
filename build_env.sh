@@ -140,7 +140,7 @@ else
         # --- NOTE: Use official PyTorch CUDA wheels for JetPack 6+
         case $CUDA_VERSION in
             12.*) pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu126 ;;
-            11.*) pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118 ;;
+            11.*) pip install https://entuedu-my.sharepoint.com/:u:/g/personal/c230032_e_ntu_edu_sg/ET7lxCUr-35HkCZuRjFAp04BIxycUXlIpajrkO5VdEwV5w?e=shL2ku https://entuedu-my.sharepoint.com/:u:/g/personal/c230032_e_ntu_edu_sg/EeUhnzAksl5KsJcYp67C4owB0DoJHHKI7r-SleHM6FWc4Q?e=ydauSA ;;
             cpu)  pip install torch torchvision torchaudio ;;
             *)    pip install torch torchvision torchaudio ;;
         esac
