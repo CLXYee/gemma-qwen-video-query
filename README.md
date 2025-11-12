@@ -24,21 +24,39 @@ cd gemma-qwen-video-query
 ````
 
 ### 2. Build the environment
-
+##### 2.1 On Jetson Devices
 A ready-to-run setup script is included for Jetson devices.
 
 ```bash
 chmod +x build_env.sh
 ./build_env.sh
 ```
+You can check the environment configuration before building 
+```bash
+./build_env.sh --check
+```
 
 This script will:
 
 * Create a Conda (or venv) environment named `video_query`
-* Install **PyTorch for JetPack (CUDA 12.2)**
-* Install all other dependencies from `requirements.txt`
+* Check Jetpack version and install respective dependencies
+* Install all other dependencies 
 
 > ⚠️ If you don't have Conda installed, the script will automatically fall back to Python `venv`.
+> ⚠️ For Jetpack 5.1.2, manually install <href="https://entuedu-my.sharepoint.com/my?id=%2Fpersonal%2Fc230032%5Fe%5Fntu%5Fedu%5Fsg%2FDocuments%2FIntern%2FDemo%2Ftorch%2D2%2E6%2E0a0%2Bgit1eba9b3%2Dcp310%2Dcp310%2Dlinux%5Faarch64%2Ewhl&parent=%2Fpersonal%2Fc230032%5Fe%5Fntu%5Fedu%5Fsg%2FDocuments%2FIntern%2FDemo&ga=1">torch</href> and <href="https://entuedu-my.sharepoint.com/my?id=%2Fpersonal%2Fc230032%5Fe%5Fntu%5Fedu%5Fsg%2FDocuments%2FIntern%2FDemo%2Ftorchvision%2D0%2E21%2E0%2B7af6987%2Dcp310%2Dcp310%2Dlinux%5Faarch64%2Ewhl&parent=%2Fpersonal%2Fc230032%5Fe%5Fntu%5Fedu%5Fsg%2FDocuments%2FIntern%2FDemo&ga=1">torchvision</href> wheels. Then, run `pip install <filename>` in the <b>activated environment</b>
+
+
+##### 2.2 On Non-Jetson Devices
+
+An environment building script is included for Non-Jetson devices.
+```bash
+chmod +x build_env_notjetson.sh
+./build_env_notjetson.sh 
+``` 
+This script will:
+
+* Create a Conda (or venv) environment named `video_query`
+* Install all dependencies needed for Python 3.10
 
 ---
 
@@ -53,7 +71,7 @@ conda activate gemma3
 #### If using venv:
 
 ```bash
-source gemma3/bin/activate
+source video_query/bin/activate
 ```
 
 ---
