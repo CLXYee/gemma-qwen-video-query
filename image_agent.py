@@ -115,7 +115,7 @@ class LiveImageAgent:
     # -------------------------------
     # Display and overlay
     # -------------------------------
-    def _overlay_text(self, frame, text, max_width=1200, max_height=900):
+    def _overlay_text(self, frame, text, max_width=1536, max_height=864):
         """
         Overlay caption text on image with word wrapping, consistent font size,
         and a single semi-transparent background rectangle for readability.
@@ -134,7 +134,7 @@ class LiveImageAgent:
 
         # Font settings
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.3  # consistent size
+        font_scale = 0.4  # consistent size
         thickness = 1
         line_spacing = 5
 
