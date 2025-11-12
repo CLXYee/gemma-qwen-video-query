@@ -8,7 +8,6 @@ import numpy as np
 import cv2
 from PIL import Image
 
-# Optional Jetson display support
 try:
     import jetson.utils
     USE_JETSON = True
@@ -104,8 +103,9 @@ class LiveImageAgent:
                 "description": description
             })
 
-            if len(self.prompt_history) % 5 == 0:
-                self._save_history()
+            if self.save_output:
+                if len(self.prompt_history) % 5 == 0:
+                    self._save_history()
 
         except Exception as e:
             print(f"[Error in inference for {filename}]: {e}")
@@ -138,7 +138,7 @@ class LiveImageAgent:
         thickness = 1
         line_spacing = 5
 
-        # Maximum width for text area
+        # Maximum width for text area 
         max_text_width = int(w * 0.9)  # leave 10% padding on right
 
         # Split text into words and wrap lines
@@ -210,7 +210,6 @@ class LiveImageAgent:
                     cv2.destroyAllWindows()
                     break
 
-            # Optionally save to video
             if self.save_video and self.video_writer:
                 self.video_writer.write(cv2.cvtColor(annotated, cv2.COLOR_RGB2BGR))
 
@@ -277,8 +276,6 @@ class LiveImageAgent:
         self._save_history()
         print("[ImageAgent] Stopped. Press ESC in display window to exit.")
         self.display_thread.join()
-
-
 
     def stop(self):
         """Stop all processes"""
