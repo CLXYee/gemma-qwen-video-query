@@ -7,7 +7,7 @@
 # =======================================================
 
 set -e
-ENV_NAME="gemma3"
+ENV_NAME="video_query"
 JETSON_PYPI_BASE="https://pypi.jetson-ai-lab.io"
 DRY_RUN=false
 

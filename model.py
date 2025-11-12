@@ -1,6 +1,5 @@
 #model.py
 import torch
-from transformers import pipeline, AutoProcessor, Gemma3ForConditionalGeneration, AutoModelForImageTextToText
 from torchvision import transforms
 from distutils.version import LooseVersion
 from PIL import Image
@@ -32,6 +31,7 @@ class Gemma3ImageDescriber():
             self.quantization_config = None
         
         # Load processor and model
+        from transformers import AutoProcessor, Gemma3ForConditionalGeneration
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.model = Gemma3ForConditionalGeneration.from_pretrained(
             model_id,
@@ -106,6 +106,7 @@ class Gemma3ImageDescriberApi():
         self.device = device
 
     def describe_frame(self, image_path, prompt=None, max_new_tokens=16):
+        from transformers import pipeline
         pipe = pipeline(
             "image-text-to-text",
             model=self.model_id,
@@ -137,6 +138,7 @@ class Gemma3ImageDescriberApi():
 
 class QwenImageDescriber():
     def __init__(self, model_id="Qwen/Qwen2.5-VL-7B-Instruct", device="cuda:0", quantization_config=None):
+        from transformers import AutoProcessor
         self.model_id = model_id
         self.device = device
 
@@ -158,18 +160,25 @@ class QwenImageDescriber():
             self.quantization_config = None
         
         # Load processor and model
-        self.model=AutoModelForImageTextToText.from_pretrained(
-            self.model_id, quantization_config = self.quantization_config,
-            torch_dtype=torch.bfloat16, device_map="auto"
-        )
+        if "Qwen2.5" in self.model_id:
+            from transformers import Qwen2_5_VLForConditionalGeneration
+            self.model=Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                self.model_id, quantization_config = self.quantization_config,
+                torch_dtype=torch.bfloat16, device_map="auto"
+            )
+        elif "Qwen2" in self.model_id:
+            from transformers import Qwen2VLForConditionalGeneration
+            self.model=Qwen2VLForConditionalGeneration.from_pretrained(
+                self.model_id, quantization_config = self.quantization_config,
+                torch_dtype=torch.bfloat16, device_map="auto"
+            )
+        else:
+            from transformers import Qwen3VLForConditionalGeneration
+            self.model=Qwen3VLForConditionalGeneration.from_pretrained(
+                self.model_id, quantization_config = self.quantization_config,
+                torch_dtype=torch.bfloat16, device_map="auto"
+            )
         self.processor = AutoProcessor.from_pretrained(self.model_id)
-        self.processor.tokenizer.padding_side = "left"
-
-        pad_id = self.processor.image_token_id or self.processor.video_token_id
-        eos_id = self.processor.video_token_id
-
-        self.model.generation_config.image_token_id = pad_id
-        self.model.generation_config.video_token_id = eos_id
 
     def cudaToImg(self, image):
         if isinstance(image,np.ndarray):
@@ -188,6 +197,7 @@ class QwenImageDescriber():
         system_prompt = "You are an open vocabulary detection agent. Output within 10 words. Do not provide additional explanations. "
         if prompt is None:
             prompt = "Describe the image precisely"
+
         messages = [
             {
                 "role": "user",
@@ -202,13 +212,19 @@ class QwenImageDescriber():
         ]
 
         # Preparation for inference 
-        inputs = self.processor.apply_chat_template(
-            messages,
-            tokenize=True,
-            return_dict=True,
-            return_tensors="pt"
+        from qwen_vl_utils import process_vision_info
+        text = self.processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
         )
-        inputs = inputs.to(self.model.device)
+        image_inputs, video_inputs = process_vision_info(messages)
+        inputs = self.processor(
+            text=[text],
+            images=image_inputs,
+            videos=video_inputs,
+            padding=True,
+            return_tensors="pt",
+        )
+        inputs = inputs.to("cuda")
 
         # Inference: Generation of the output
         generated_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens)

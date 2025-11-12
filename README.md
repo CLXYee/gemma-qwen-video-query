@@ -7,7 +7,7 @@ It uses CUDA-accelerated inference and a lightweight **Pygame display backend** 
 
 ## 🚀 Features
 
-- 🔍 Real-time image understanding using **Gemma3**  
+- 🔍 Real-time image understanding using **Gemma** and **Qwen** models
 - ⚡ Optimized for Jetson (CUDA / Tensor Cores)  
 - 🧠 Threaded inference + safe video display loop  
 - 🧾 Automatic prompt logging and CSV history  
@@ -20,7 +20,7 @@ It uses CUDA-accelerated inference and a lightweight **Pygame display backend** 
 ### 1. Clone this repository
 ```bash
 git clone https://github.com/CLXYee/gemma-qwen-video-query.git
-cd gemma3-video-agent
+cd gemma-qwen-video-query
 ````
 
 ### 2. Build the environment
@@ -34,7 +34,7 @@ chmod +x build_env.sh
 
 This script will:
 
-* Create a Conda (or venv) environment named `gemma3`
+* Create a Conda (or venv) environment named `video_query`
 * Install **PyTorch for JetPack (CUDA 12.2)**
 * Install all other dependencies from `requirements.txt`
 
@@ -96,6 +96,7 @@ python video_query.py \
 | `--prompt`         | Custom prompt for captioning   | `"Describe the image precisely within 10 words."` |
 | `--max_new_tokens` | Maximum tokens for generation  | `16`                                              |
 | `--on_video`       | Enable real-time video display | (flag only)                                       |
+| `--mode`           | Toggle display mode            | `Choose between "video" and "image" mode`         |
 
 ---
 

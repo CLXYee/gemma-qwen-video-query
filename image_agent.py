@@ -16,10 +16,10 @@ except ImportError:
     USE_JETSON = False
 
 
-class ImageAgent:
+class LiveImageAgent:
     def __init__(self, describer, image_folder="./selected",
                  prompt=None, max_tokens=16,
-                 save_output=True, output_file="prompt_history.csv",
+                 save_output=False, output_file="prompt_history.csv",
                  save_video=False, video_path="output.mp4"):
 
         self.describer = describer
@@ -117,7 +117,8 @@ class ImageAgent:
     # -------------------------------
     def _overlay_text(self, frame, text, max_width=1200, max_height=900):
         """
-        Overlay caption text on image with word wrapping and consistent font size.
+        Overlay caption text on image with word wrapping, consistent font size,
+        and a single semi-transparent background rectangle for readability.
         """
         # Resize first
         h, w = frame.shape[:2]
@@ -128,7 +129,7 @@ class ImageAgent:
 
         annotated = frame.copy()
 
-        # Convert RGB -> BGR for OpenCV
+        # Convert RGB -> BGR for OpenCV display
         annotated = cv2.cvtColor(annotated, cv2.COLOR_RGB2BGR)
 
         # Font settings
@@ -149,7 +150,7 @@ class ImageAgent:
                 test_line = f"{current_line} {word}".strip()
                 (text_width, _), _ = cv2.getTextSize(test_line, font, font_scale, thickness)
                 if text_width > max_text_width:
-                    if current_line:  # push current line
+                    if current_line:
                         lines.append(current_line)
                     current_line = word
                 else:
@@ -157,14 +158,29 @@ class ImageAgent:
             if current_line:
                 lines.append(current_line)
 
-        # Overlay lines
+        # Calculate the bounding rectangle for all text
         y0 = 40
         dy = int(cv2.getTextSize("Test", font, font_scale, thickness)[0][1] + line_spacing)
+        text_height = len(lines) * dy
+        max_line_width = max(cv2.getTextSize(line, font, font_scale, thickness)[0][0] for line in lines)
+
+        # Rectangle coordinates: top-left and bottom-right
+        x1, y1 = 15, y0 - 10
+        x2, y2 = x1 + max_line_width + 20, y1 + text_height + 10
+
+        # Draw a single semi-transparent rectangle
+        overlay = annotated.copy()
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 0), -1)
+        alpha = 0.5
+        cv2.addWeighted(overlay, alpha, annotated, 1 - alpha, 0, annotated)
+
+        # Draw all lines of text on top of the rectangle
         for i, line in enumerate(lines):
-            y = y0 + i*dy
+            y = y0 + i * dy
             cv2.putText(annotated, line, (20, y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
 
         return annotated
+
 
     def display_loop(self):
         """Continuously display frames with captions (like video)."""
@@ -188,7 +204,7 @@ class ImageAgent:
                 self.display.SetStatus("Gemma3 Image Describer")
             else:
                 cv2.imshow("Gemma3 Image Describer", annotated)
-                key = cv2.waitKey(100)
+                key = cv2.waitKey(50)
                 if key == 27:  # ESC
                     self.stop()
                     cv2.destroyAllWindows()
@@ -217,7 +233,11 @@ class ImageAgent:
     # Start/stop lifecycle
     # -------------------------------
     def start(self):
-        """Start looping through images as frames"""
+        """Start looping through images as frames continuously"""
+        if not self.images:
+            print("[ImageAgent] No images found to display.")
+            return
+
         print(f"[ImageAgent] Starting... Found {len(self.images)} images.")
         self.running = True
 
@@ -233,30 +253,31 @@ class ImageAgent:
         self.display_thread = threading.Thread(target=self.display_loop, daemon=True)
         self.display_thread.start()
 
-        # Loop through images
-        for filename in self.images:
-            if not self.running:
-                break
+        # Continuous looping through images
+        while self.running:
+            for filename in self.images:
+                if not self.running:
+                    break
 
-            try:
-                img = Image.open(filename).convert('RGB')
-                self.last_caption = "Loading..."
-                np_frame = np.array(img)
-            except Exception as e:
-                print(f"[ImageAgent] Failed to load {filename}: {e}")
-                continue
+                try:
+                    img = Image.open(filename).convert('RGB')
+                    self.last_caption = "Loading..."
+                    np_frame = np.array(img)
+                except Exception as e:
+                    print(f"[ImageAgent] Failed to load {filename}: {e}")
+                    continue
 
-            self.on_frame(np_frame, os.path.basename(filename))
-            time.sleep(10)  # wait 5 seconds before next image
+                # Send frame to inference + display
+                self.on_frame(np_frame, os.path.basename(filename))
+                time.sleep(10)  # wait 10 seconds before next image
 
         if self.catch_time:
             print(f"[PROCESS COMPLETE] Average inference time: {np.mean(self.catch_time):.2f}s")
 
         self._save_history()
-
-        # Wait for user to close display manually
-        print("[ImageAgent] All images processed. Press ESC in display window to exit.")
+        print("[ImageAgent] Stopped. Press ESC in display window to exit.")
         self.display_thread.join()
+
 
 
     def stop(self):

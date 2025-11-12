@@ -1,9 +1,6 @@
 # video_query.py
 import argparse
 import time
-from camera import VideoSource
-from display import VideoOutput
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -135,19 +132,23 @@ def main():
     else:
         print("[Warning] Model not available yet. Stay tuned! For now, please use vision-language-models from the Gemma family")
         return
-    video_source = VideoSource(args.source, video_input_framerate=args.frame_rate, return_tensors=args.return_tensors)
-
-    if args.save_video and not args.on_video:
-        print("[INFO] --save_video enabled but --on_video not detected. Automatically enabling --on_video for frame fetching and rendering")
-        args.on_video = True
-    if args.headless or args.on_video==False:
-        video_output = None
-    else:
-        video_output = VideoOutput(width=args.width, height=args.height)
     
     if args.mode == "video":
         print("[INFO] Video mode selected. Launching video agent...")
         from video_agent import LiveVideoAgent
+        from camera import VideoSource
+        from display import VideoOutput
+
+        video_source = VideoSource(args.source, video_input_framerate=args.frame_rate, return_tensors=args.return_tensors)
+
+        if args.save_video and not args.on_video:
+            print("[INFO] --save_video enabled but --on_video not detected. Automatically enabling --on_video for frame fetching and rendering")
+            args.on_video = True
+        if args.headless or args.on_video==False:
+            video_output = None
+        else:
+            video_output = VideoOutput(width=args.width, height=args.height)
+
         agent = LiveVideoAgent(describer, 
                             video_source, video_output, 
                             prompt=args.prompt, max_tokens=args.max_tokens,
@@ -158,13 +159,11 @@ def main():
     else:
         print("[INFO] Image mode selected. Launching image agent...")
         from image_agent import LiveImageAgent
-        agent = LiveImageAgent(describer, 
-                            image_folder = args.source, 
-                            prompt=args.prompt, max_tokens=args.max_tokens,
-                            save_output = args.save_output, output_file=args.output_file,
-                            save_video = args.save_video, video_path = args.video_path,
-                            on_server = args.on_server
-                            )
+        args.prompt = "Describe the image in detailed within 200 words. Include features of the landscape, activities, possible region, possible country, quantitative features if applicable. "
+        args.max_tokens = 256
+        agent = LiveImageAgent(describer, image_folder="/home/ntu/Downloads/gemma3-test/selected", 
+                               prompt=args.prompt, max_tokens=args.max_tokens)
+
     agent.start()
 
     # -----------------------------
