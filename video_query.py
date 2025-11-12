@@ -2,7 +2,6 @@
 import argparse
 import time
 from camera import VideoSource
-from video_agent import LiveVideoAgent
 from display import VideoOutput
 
 
@@ -89,6 +88,12 @@ def main():
         help="Define the model id of the VLM to be used"
     )
     parser.add_argument(
+        "--mode",
+        type=str,
+        default="video",
+        help="Choose between 'image' or 'video' mode"
+    )
+    parser.add_argument(
         "--prompt",
         type=str,
         default="Describe the image precisely.",
@@ -139,14 +144,27 @@ def main():
         video_output = None
     else:
         video_output = VideoOutput(width=args.width, height=args.height)
-
-    agent = LiveVideoAgent(describer, 
-                           video_source, video_output, 
-                           prompt=args.prompt, max_tokens=args.max_tokens,
-                           save_output = args.save_output, output_file=args.output_file,
-                           save_video = args.save_video, video_path = args.video_path,
-                           on_server = args.on_server
-                           )
+    
+    if args.mode == "video":
+        print("[INFO] Video mode selected. Launching video agent...")
+        from video_agent import LiveVideoAgent
+        agent = LiveVideoAgent(describer, 
+                            video_source, video_output, 
+                            prompt=args.prompt, max_tokens=args.max_tokens,
+                            save_output = args.save_output, output_file=args.output_file,
+                            save_video = args.save_video, video_path = args.video_path,
+                            on_server = args.on_server
+                            )
+    else:
+        print("[INFO] Image mode selected. Launching image agent...")
+        from image_agent import LiveImageAgent
+        agent = LiveImageAgent(describer, 
+                            image_folder = args.source, 
+                            prompt=args.prompt, max_tokens=args.max_tokens,
+                            save_output = args.save_output, output_file=args.output_file,
+                            save_video = args.save_video, video_path = args.video_path,
+                            on_server = args.on_server
+                            )
     agent.start()
 
     # -----------------------------

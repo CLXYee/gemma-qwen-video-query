@@ -64,7 +64,7 @@ class Gemma3ImageDescriber():
         messages = [
             {
                 "role": "system",
-                "content": [{"type": "text", "text": "You are an open vocabulary detection agent. Output within 10 words. Do not provide additional explanations"}]
+                "content": [{"type": "text", "text": "You are an open vocabulary detection agent. Do not provide additional explanations"}]
             },
             {
                 "role": "user",
