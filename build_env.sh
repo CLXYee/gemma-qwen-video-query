@@ -139,7 +139,8 @@ else
     else
         # --- NOTE: Use official PyTorch CUDA wheels for JetPack 6+
         case $CUDA_VERSION in
-            12.*) pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu126 ;;
+            12.*) pip install https://download.pytorch.org/whl/cu126/torch-2.6.0%2Bcu126-cp310-cp310-linux_aarch64.whl#sha256=48775b8544e6705aa72256117f33c5f0c3c1ab51cb7abef1989dcfc3cf2e6500 \
+                              https://download.pytorch.org/whl/cpu/torchvision-0.21.0-cp310-cp310-linux_aarch64.whl#sha256=54815e0a56dde95cc6ec952577f67e0dc151eadd928e8d9f6a7f821d69a4a734;;            
             11.*) echo "Please download the torch and torchvision wheels manually and install using the wheels";;
             cpu)  pip install torch torchvision torchaudio ;;
             *)    pip install torch torchvision torchaudio ;;
@@ -155,6 +156,8 @@ echo "Installing jetson-utils from source..."
 echo "----------------------------------------------------"
 sudo apt update
 sudo apt install -y cmake build-essential git python3-dev
+
+pip install numpy<2
 
 WORKDIR=$(pwd)
 cd /tmp
@@ -213,6 +216,7 @@ for pkg in "${PYTHON_PACKAGES[@]}"; do
     pip install "$pkg" || echo "[WARN] Failed to install $pkg — continuing..."
 done
 pip install termcolor tabulate docker ffmpeg
+pip install accelerate
 
 pip cache purge || true
 
