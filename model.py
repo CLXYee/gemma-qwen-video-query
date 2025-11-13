@@ -89,7 +89,8 @@ class Gemma3ImageDescriber():
             generation = self.model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
-                do_sample=False
+                do_sample=True,
+                temperature=0.7 # For more diverse outputs
             )
             generation = generation[0][input_len:]
         

@@ -7,6 +7,7 @@ import queue
 import numpy as np
 import cv2
 from PIL import Image
+import unicodedata
 
 try:
     import jetson.utils
@@ -141,6 +142,17 @@ class LiveImageAgent:
 
         # Maximum width for text area 
         max_text_width = int(w * 0.9)  # leave 10% padding on right
+
+        # Normalize fancy quotes/dashes to ASCII equivalents
+        text = (text.replace("’", "'")
+                    .replace("‘", "'")
+                    .replace("“", '"')
+                    .replace("”", '"')
+                    .replace("–", "-")
+                    .replace("—", "-"))
+
+        # Also remove any non-printable Unicode characters
+        text = ''.join(ch for ch in text if ord(ch) < 128)
 
         # Split text into words and wrap lines
         lines = []

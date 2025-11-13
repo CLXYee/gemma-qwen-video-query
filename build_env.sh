@@ -167,6 +167,11 @@ cmake -DPYTHON_EXECUTABLE=$(which python) ../
 make -j$(nproc)
 sudo make install
 sudo ldconfig
+
+cd /usr/lib/python3.10/dist-packages
+sudo cp -r jetson_utils /home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/
+sudo cp jetson_utils_python.so /home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/
+
 cd $WORKDIR
 
 # =======================================================
@@ -197,7 +202,7 @@ case $PYTHON_VERSION in
     *)
         PYTHON_PACKAGES=(
             "transformers"
-            "numpy"
+            "numpy==1.26.4"
             "Pillow"
             "pygame"
         )

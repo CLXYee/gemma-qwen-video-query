@@ -111,6 +111,7 @@ PYTHON_PACKAGES=(
     "docker"
     "accelerate"
     "ffmpeg"
+    "opencv-python"
 )
 
 for pkg in "${PYTHON_PACKAGES[@]}"; do
