@@ -207,7 +207,7 @@ esac
 for pkg in "${PYTHON_PACKAGES[@]}"; do
     pip install "$pkg" || echo "[WARN] Failed to install $pkg — continuing..."
 done
-pip install termcolor tabulate docker accelerate
+pip install termcolor tabulate docker accelerate ffmpeg
 
 pip cache purge || true
 

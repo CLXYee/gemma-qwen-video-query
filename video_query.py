@@ -162,25 +162,36 @@ def main():
         args.prompt = "Describe the image in detailed within 200 words. Include features of the landscape, activities, possible region, possible country, and quantitative features if applicable. Avoid using special characters."
         args.max_tokens = 256
         agent = LiveImageAgent(describer, image_folder="/home/ntu/Downloads/gemma3-test/selected", 
-                               prompt=args.prompt, max_tokens=args.max_tokens)
-
-    agent.start()
+                               prompt=args.prompt, max_tokens=args.max_tokens,
+                               save_output= args.save_output, output_file=args.output_file,
+                               save_video= args.save_video, video_path = args.video_path
+                               )
 
     # -----------------------------
     # Run display or background mode
     # -----------------------------
-    try:
-        if args.on_video and not args.headless:
-            print("[INFO] Starting video display loop...")
-            while True:
-                agent.display_loop()
-        else:
-            print("[INFO] Running without display (inference only mode)...")
-            while True:
-                time.sleep(0.1)
-    except KeyboardInterrupt:
-        print("\n[INFO] Interrupted by user, stopping agent...")
-        agent.stop()
+    if args.mode == "image":
+        try:
+            agent.start()
+        except KeyboardInterrupt:
+            print("[INFO] Interrupted by user, stopping agent...")
+            agent.stop()
+            agent.stop_event.set()  # signal all loops to stop
+            agent.release_resources()
+    else:
+        try:
+            agent.start()
+            if args.on_video and not args.headless:
+                print("[INFO] Starting video display loop...")
+                while True:
+                    agent.display_loop()
+            else:
+                print("[INFO] Running without display (inference only mode)...")
+                while True:
+                    time.sleep(0.1)
+        except KeyboardInterrupt:
+            print("\n[INFO] Interrupted by user, stopping agent...")
+            agent.stop()
 
 
 if __name__ == "__main__":

@@ -110,6 +110,7 @@ PYTHON_PACKAGES=(
     "tabulate"
     "docker"
     "accelerate"
+    "ffmpeg"
 )
 
 for pkg in "${PYTHON_PACKAGES[@]}"; do

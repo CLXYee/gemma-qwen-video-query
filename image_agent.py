@@ -29,6 +29,7 @@ class LiveImageAgent:
         self.output_file = output_file
         self.save_video = save_video
         self.video_path = video_path
+        self.stop_event = threading.Event()
 
         self.prompt_history = []
         self.catch_time = []
@@ -56,7 +57,7 @@ class LiveImageAgent:
         self.index = 0
 
         if self.save_video:
-            self.fps = 0.2  # 1 frame every 5 seconds
+            self.fps = 60  # default fps
             self.video_writer = None
 
         # Set up Jetson or OpenCV display
@@ -186,7 +187,7 @@ class LiveImageAgent:
         """Continuously display frames with captions (like video)."""
         print("[Display] Starting display loop... (Press ESC to quit)")
 
-        while self.running:
+        while self.running and not self.stop_event.is_set():
             with self.frame_lock:
                 frame = self.latest_frame.copy() if self.latest_frame is not None else None
                 caption = self.last_caption
@@ -210,8 +211,17 @@ class LiveImageAgent:
                     cv2.destroyAllWindows()
                     break
 
+            if self.stop_event.is_set():
+                break
+            
             if self.save_video and self.video_writer:
-                self.video_writer.write(cv2.cvtColor(annotated, cv2.COLOR_RGB2BGR))
+                try:
+                    # Ensure frame matches the initialized video size
+                    frame_to_write = cv2.resize(annotated, (self.video_width, self.video_height))
+                    # Ensure correct color format (BGR)
+                    self.video_writer.write(frame_to_write)
+                except Exception as e:
+                    print(f"[VideoWriter Error] Failed to write frame: {e}")
 
     # -------------------------------
     # File I/O and logs
@@ -238,58 +248,90 @@ class LiveImageAgent:
             return
 
         print(f"[ImageAgent] Starting... Found {len(self.images)} images.")
+        self.stop_event.clear()
         self.running = True
 
         # Set up video writer if saving video
         if self.save_video and self.images:
             sample_img = Image.open(self.images[0])
-            width, height = sample_img.size
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            self.video_writer = cv2.VideoWriter(self.video_path, fourcc,
-                                                self.fps, (width, height))
+            self.video_width, self.video_height = sample_img.size
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # try XVID if mp4v causes issues
+            self.video_writer = cv2.VideoWriter(
+                self.video_path,
+                fourcc,
+                max(60, self.fps),
+                (self.video_width, self.video_height)
+            )
 
         # Start display thread
         self.display_thread = threading.Thread(target=self.display_loop, daemon=True)
         self.display_thread.start()
 
-        # Continuous looping through images
-        while self.running:
-            for filename in self.images:
-                if not self.running:
-                    break
+        try:
+            # Continuous looping through images
+            while self.running and not self.stop_event.is_set():
+                for filename in self.images:
+                    if self.stop_event.is_set() or not self.running:
+                        break
 
-                try:
-                    img = Image.open(filename).convert('RGB')
-                    self.last_caption = "Loading..."
-                    np_frame = np.array(img)
-                except Exception as e:
-                    print(f"[ImageAgent] Failed to load {filename}: {e}")
-                    continue
 
-                # Send frame to inference + display
-                self.on_frame(np_frame, os.path.basename(filename))
-                time.sleep(10)  # wait 10 seconds before next image
+                    try:
+                        img = Image.open(filename).convert('RGB')
+                        self.last_caption = "Loading..."
+                        np_frame = np.array(img)
+                    except Exception as e:
+                        print(f"[ImageAgent] Failed to load {filename}: {e}")
+                        continue
 
-        if self.catch_time:
-            print(f"[PROCESS COMPLETE] Average inference time: {np.mean(self.catch_time):.2f}s")
+                    # Send frame to inference + display
+                    self.on_frame(np_frame, os.path.basename(filename))
+                    time.sleep(10)  # wait 10 seconds before next image
 
-        self._save_history()
-        print("[ImageAgent] Stopped. Press ESC in display window to exit.")
-        self.display_thread.join()
+        except KeyboardInterrupt:
+            print("\n[KeyboardInterrupt] Gracefully stopping...")
+            self.stop_event.set()
+            self.stop()
+
+        finally:
+            # Always release video writer and cleanup
+            if self.catch_time:
+                print(f"[PROCESS COMPLETE] Average inference time: {np.mean(self.catch_time):.2f}s")
+
+            self._save_history()
+            if self.save_video and self.video_writer:
+                print(f"[Video] Saved to: {self.video_path}")
+                self.video_writer.release()
+                self.video_writer = None
+
+            self.running = False
+            print("[ImageAgent] Stopped.")
+            if self.display_thread and self.display_thread.is_alive():
+                self.display_thread.join(timeout=1)
+            if not USE_JETSON:
+                cv2.destroyAllWindows()
 
     def stop(self):
-        """Stop all processes"""
+        """Stop all processes gracefully."""
         if not self.running:
             return
+
         print("[ImageAgent] Stopping...")
         self.running = False
+        self.stop_event.set()
 
+        # Wait for display thread to exit
+        if self.display_thread and self.display_thread.is_alive():
+            self.display_thread.join(timeout=2)
+
+        # Release video writer last
         if self.save_video and self.video_writer:
+            print("[VideoWriter] Releasing video writer...")
             self.video_writer.release()
             self.video_writer = None
-
-        if self.display_thread and self.display_thread.is_alive():
-            self.display_thread.join(timeout=1)
+            print(f"[VideoWriter] Saved video to {self.video_path}")
 
         if not USE_JETSON:
             cv2.destroyAllWindows()
+
+        print("[ImageAgent] Stopped.")
+
