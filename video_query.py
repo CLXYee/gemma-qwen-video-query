@@ -99,7 +99,8 @@ def main():
     parser.add_argument(
         "--prompt",
         type=str,
-        default="Describe the image precisely.",
+        #default="Describe the image precisely.",
+        default=None,
         help="Define prompt to pass to the VLM"
     )
     parser.add_argument(
@@ -165,7 +166,8 @@ def main():
     else:
         print("[INFO] Image mode selected. Launching image agent...")
         from image_agent import LiveImageAgent
-        args.prompt = "Describe the image in detailed within 200 words. Include features of the landscape, activities, possible region, possible country, and quantitative features if applicable. Avoid using special characters."
+        if args.prompt == None:
+            args.prompt = "Describe the image in detailed within 200 words. Include features of the landscape, activities, possible region, possible country, and quantitative features if applicable. Avoid using special characters."
         args.max_tokens = 256
         agent = LiveImageAgent(describer, image_folder=args.image_source, 
                                prompt=args.prompt, max_tokens=args.max_tokens,

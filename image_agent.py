@@ -5,15 +5,40 @@ import os
 import csv
 import queue
 import numpy as np
-import cv2
-from PIL import Image
-import unicodedata
 
 try:
+    import cv2
+    CV2_AVAILABLE = True
+except Exception:
+    cv2 = None
+    CV2_AVAILABLE = False
+
+from PIL import Image, ImageDraw, ImageFont
+import unicodedata
+
+def detect_jetson():
+    try:
+        import jetson.utils
+        return True
+    except ImportError:
+        pass
+
+    # Check device-tree model 
+    model_path = "/proc/device-tree/model"
+    if os.path.exists(model_path):
+        try:
+            with open(model_path, "r") as f:
+                model = f.read()
+                if "NVIDIA" in model or "Jetson" in model:
+                    return True
+        except:
+            pass
+    return False
+
+USE_JETSON = detect_jetson()
+if USE_JETSON:
     import jetson.utils
-    USE_JETSON = True
-except ImportError:
-    USE_JETSON = False
+
 
 
 class LiveImageAgent:
@@ -119,80 +144,68 @@ class LiveImageAgent:
     # -------------------------------
     def _overlay_text(self, frame, text, max_width=1536, max_height=864):
         """
-        Overlay caption text on image with word wrapping, consistent font size,
-        and a single semi-transparent background rectangle for readability.
+        Jetson-safe text overlay using PIL everywhere.
+        Works with or without cv2 installed.
         """
-        # Resize first
-        h, w = frame.shape[:2]
+
+        # Resize using PIL instead of cv2 (more stable on Jetson)
+        img = Image.fromarray(frame)
+
+        w, h = img.size
         scale = min(max_width / w, max_height / h, 1.0)
         if scale < 1.0:
-            frame = cv2.resize(frame, (int(w*scale), int(h*scale)))
-            h, w = frame.shape[:2]
+            new_size = (int(w * scale), int(h * scale))
+            img = img.resize(new_size, Image.LANCZOS)
 
-        annotated = frame.copy()
+        draw = ImageDraw.Draw(img)
 
-        # Convert RGB -> BGR for OpenCV display
-        annotated = cv2.cvtColor(annotated, cv2.COLOR_RGB2BGR)
+        # Normalize text (same as your version)
+        text = (text.replace("’", "'").replace("‘", "'")
+                    .replace("“", '"').replace("”", '"')
+                    .replace("–", "-").replace("—", "-"))
 
-        # Font settings
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.4  # consistent size
-        thickness = 1
-        line_spacing = 5
-
-        # Maximum width for text area 
-        max_text_width = int(w * 0.9)  # leave 10% padding on right
-
-        # Normalize fancy quotes/dashes to ASCII equivalents
-        text = (text.replace("’", "'")
-                    .replace("‘", "'")
-                    .replace("“", '"')
-                    .replace("”", '"')
-                    .replace("–", "-")
-                    .replace("—", "-"))
-
-        # Also remove any non-printable Unicode characters
         text = ''.join(ch for ch in text if ord(ch) < 128)
 
-        # Split text into words and wrap lines
-        lines = []
-        for paragraph in text.split('\n'):
-            words = paragraph.split(' ')
-            current_line = ""
-            for word in words:
-                test_line = f"{current_line} {word}".strip()
-                (text_width, _), _ = cv2.getTextSize(test_line, font, font_scale, thickness)
-                if text_width > max_text_width:
-                    if current_line:
-                        lines.append(current_line)
-                    current_line = word
-                else:
-                    current_line = test_line
-            if current_line:
-                lines.append(current_line)
+        # Font
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
+        except:
+            font = ImageFont.load_default()
 
-        # Calculate the bounding rectangle for all text
+        # Wrap text manually
+        max_text_px = int(img.size[0] * 0.9)
+        words = text.split(" ")
+        lines, line = [], ""
+
+        for word in words:
+            test = (line + " " + word).strip()
+            wtest, _ = draw.textsize(test, font=font)
+            if wtest > max_text_px:
+                lines.append(line)
+                line = word
+            else:
+                line = test
+        if line:
+            lines.append(line)
+
+        # Background rectangle
         y0 = 40
-        dy = int(cv2.getTextSize("Test", font, font_scale, thickness)[0][1] + line_spacing)
-        text_height = len(lines) * dy
-        max_line_width = max(cv2.getTextSize(line, font, font_scale, thickness)[0][0] for line in lines)
+        line_height = font.getbbox("A")[3] + 6  
+        box_height = len(lines) * line_height + 10
+        box_width = max(draw.textsize(l, font=font)[0] for l in lines) + 20
 
-        # Rectangle coordinates: top-left and bottom-right
-        x1, y1 = 15, y0 - 10
-        x2, y2 = x1 + max_line_width + 20, y1 + text_height + 10
+        draw.rectangle(
+            [(10, y0 - 10), (10 + box_width, y0 + box_height)],
+            fill=(0, 0, 0, 180)
+        )
 
-        # Draw a single semi-transparent rectangle
-        overlay = annotated.copy()
-        cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 0), -1)
-        alpha = 0.5
-        cv2.addWeighted(overlay, alpha, annotated, 1 - alpha, 0, annotated)
+        # Draw lines
+        y = y0
+        for line in lines:
+            draw.text((20, y), line, fill=(255, 255, 255), font=font)
+            y += line_height
 
-        # Draw all lines of text on top of the rectangle
-        for i, line in enumerate(lines):
-            y = y0 + i * dy
-            cv2.putText(annotated, line, (20, y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
-
-        return annotated
+        return np.array(img)
 
 
     def display_loop(self):

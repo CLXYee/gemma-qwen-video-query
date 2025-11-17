@@ -157,7 +157,7 @@ echo "----------------------------------------------------"
 sudo apt update
 sudo apt install -y cmake build-essential git python3-dev
 
-pip install numpy<2
+pip install "numpy<2"
 
 WORKDIR=$(pwd)
 cd /tmp
