@@ -153,7 +153,6 @@ fi
 # =======================================================
 # Install jetson-utils 
 # =======================================================
-# Make this more dynamic. The jetson-utils package keep on getting installed into the system python path, I then copy it into the conda env. I want it to automatically fetch the system env location then install the jetson utils into it.
 echo "----------------------------------------------------"
 echo "Installing jetson-utils from source..."
 echo "----------------------------------------------------"
@@ -172,6 +171,7 @@ make -j$(nproc)
 sudo make install
 sudo ldconfig
 
+PYTHON_BIN=$(which python3)
 SITE_PACKAGES=$($PYTHON_BIN -c "import site; print(site.getsitepackages()[0])")
 echo "Detected site-packages path: $SITE_PACKAGES"
 
