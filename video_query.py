@@ -91,6 +91,12 @@ def main():
         help="Choose between 'image' or 'video' mode"
     )
     parser.add_argument(
+        "--image_source",
+        type=str,
+        default="/home/ntu/Downloads/gemma3-test/selected",
+        help="Image directory source for image mode"
+    )
+    parser.add_argument(
         "--prompt",
         type=str,
         default="Describe the image precisely.",
@@ -161,7 +167,7 @@ def main():
         from image_agent import LiveImageAgent
         args.prompt = "Describe the image in detailed within 200 words. Include features of the landscape, activities, possible region, possible country, and quantitative features if applicable. Avoid using special characters."
         args.max_tokens = 256
-        agent = LiveImageAgent(describer, image_folder="/home/ntu/Downloads/gemma3-test/selected", 
+        agent = LiveImageAgent(describer, image_folder=args.image_source, 
                                prompt=args.prompt, max_tokens=args.max_tokens,
                                save_output= args.save_output, output_file=args.output_file,
                                save_video= args.save_video, video_path = args.video_path

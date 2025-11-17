@@ -112,6 +112,7 @@ PYTHON_PACKAGES=(
     "accelerate"
     "ffmpeg"
     "opencv-python"
+    "wrapt"
 )
 
 for pkg in "${PYTHON_PACKAGES[@]}"; do
