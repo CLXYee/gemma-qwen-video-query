@@ -32,7 +32,7 @@ if [[ -f /etc/nv_tegra_release ]]; then
     L4T_VERSION=$(grep -oP 'R[0-9]+' /etc/nv_tegra_release | tr -d 'R')
     echo "[INFO] Detected L4T R${L4T_VERSION}"
 
-    if (( L4T_VERSION >= 38 )); then
+    if (( L4T_VERSION >= 36 )); then
         JETPACK_VERSION=6
     elif (( L4T_VERSION >= 34 )); then
         JETPACK_VERSION=5
