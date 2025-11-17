@@ -5,6 +5,7 @@ import os
 import csv
 import queue
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 try:
     import cv2
@@ -143,14 +144,10 @@ class LiveImageAgent:
     # Display and overlay
     # -------------------------------
     def _overlay_text(self, frame, text, max_width=1536, max_height=864):
-        """
-        Jetson-safe text overlay using PIL everywhere.
-        Works with or without cv2 installed.
-        """
+        img = Image.fromarray(frame[:, :, ::-1])
+        img = img.convert("RGBA") 
 
-        # Resize using PIL instead of cv2 (more stable on Jetson)
-        img = Image.fromarray(frame)
-
+        # Resize
         w, h = img.size
         scale = min(max_width / w, max_height / h, 1.0)
         if scale < 1.0:
@@ -159,50 +156,73 @@ class LiveImageAgent:
 
         draw = ImageDraw.Draw(img)
 
-        # Normalize text (same as your version)
+        # Normalize caption
         text = (text.replace("’", "'").replace("‘", "'")
                     .replace("“", '"').replace("”", '"')
                     .replace("–", "-").replace("—", "-"))
-
         text = ''.join(ch for ch in text if ord(ch) < 128)
 
-        # Font
+        # Load font
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
         except:
             font = ImageFont.load_default()
 
-        # Wrap text manually
+        # Wrap text
         max_text_px = int(img.size[0] * 0.9)
-        words = text.split(" ")
-        lines, line = [], ""
+        words = text.split()
+        lines = []
+        line = ""
 
         for word in words:
             test = (line + " " + word).strip()
-            wtest, _ = draw.textsize(test, font=font)
+            
+            bbox = draw.textbbox((0, 0), test, font=font)
+            wtest = bbox[2] - bbox[0]
+
             if wtest > max_text_px:
                 lines.append(line)
                 line = word
             else:
                 line = test
+
         if line:
             lines.append(line)
 
-        # Background rectangle
+        # Compute background box size
         y0 = 40
-        line_height = font.getbbox("A")[3] + 6  
-        box_height = len(lines) * line_height + 10
-        box_width = max(draw.textsize(l, font=font)[0] for l in lines) + 20
 
-        draw.rectangle(
+        # Height of 1 line
+        # font.getbbox returns (x0, y0, x1, y1)
+        bboxA = font.getbbox("A")
+        line_height = (bboxA[3] - bboxA[1]) + 6
+
+        # Box width = longest line
+        box_width = 0
+        for l in lines:
+            bbox = draw.textbbox((0, 0), l, font=font)
+            wline = bbox[2] - bbox[0]
+            if wline > box_width:
+                box_width = wline
+        box_width += 20  # padding
+
+        box_height = len(lines) * line_height + 10
+
+        # Draw semi-transparent background
+        overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        odraw = ImageDraw.Draw(overlay)
+        odraw.rectangle(
             [(10, y0 - 10), (10 + box_width, y0 + box_height)],
             fill=(0, 0, 0, 180)
         )
+        img = Image.alpha_composite(img, overlay)
+        draw = ImageDraw.Draw(img)
 
-        # Draw lines
+
+        # Draw text
         y = y0
-        for line in lines:
-            draw.text((20, y), line, fill=(255, 255, 255), font=font)
+        for l in lines:
+            draw.text((20, y), l, fill=(255, 255, 255), font=font)
             y += line_height
 
         return np.array(img)
@@ -229,12 +249,17 @@ class LiveImageAgent:
                 self.display.RenderOnce(cuda_img)
                 self.display.SetStatus("Gemma3 Image Describer")
             else:
-                cv2.imshow("Gemma3 Image Describer", annotated)
-                key = cv2.waitKey(50)
-                if key == 27:  # ESC
-                    self.stop()
-                    cv2.destroyAllWindows()
-                    break
+                if CV2_AVAILABLE:
+                    cv2.imshow("Gemma3 Image Describer", annotated)
+                    key = cv2.waitKey(50)
+                    if key == 27:
+                        self.stop()
+                        cv2.destroyAllWindows()
+                        break
+                else:
+                    # fallback pop-up window using PIL
+                    Image.fromarray(annotated).show()
+                    time.sleep(1)
 
             if self.stop_event.is_set():
                 break

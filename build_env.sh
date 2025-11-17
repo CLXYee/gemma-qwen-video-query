@@ -32,7 +32,7 @@ if [[ -f /etc/nv_tegra_release ]]; then
     L4T_VERSION=$(grep -oP 'R[0-9]+' /etc/nv_tegra_release | tr -d 'R')
     echo "[INFO] Detected L4T R${L4T_VERSION}"
 
-    if (( L4T_VERSION >= 36 )); then
+    if (( L4T_VERSION >= 38 )); then
         JETPACK_VERSION=6
     elif (( L4T_VERSION >= 34 )); then
         JETPACK_VERSION=5
@@ -129,6 +129,8 @@ echo "----------------------------------------------------"
 echo "Installing PyTorch for CUDA=$CUDA_VERSION / Python=$PYTHON_VERSION"
 echo "----------------------------------------------------"
 
+pip install "numpy<2"
+
 if python -c "import torch" &> /dev/null; then
     echo "[OK] PyTorch already installed."
 else
@@ -139,8 +141,8 @@ else
     else
         # --- NOTE: Use official PyTorch CUDA wheels for JetPack 6+
         case $CUDA_VERSION in
-            12.*) pip install https://download.pytorch.org/whl/cu126/torch-2.6.0%2Bcu126-cp310-cp310-linux_aarch64.whl#sha256=48775b8544e6705aa72256117f33c5f0c3c1ab51cb7abef1989dcfc3cf2e6500 \
-                              https://download.pytorch.org/whl/cpu/torchvision-0.21.0-cp310-cp310-linux_aarch64.whl#sha256=54815e0a56dde95cc6ec952577f67e0dc151eadd928e8d9f6a7f821d69a4a734;;            
+            12.*) pip install https://pypi.jetson-ai-lab.io/jp6/cu126/+f/62a/1beee9f2f1470/torch-2.8.0-cp310-cp310-linux_aarch64.whl#sha256=62a1beee9f2f147076a974d2942c90060c12771c94740830327cae705b2595fc \
+                              https://pypi.jetson-ai-lab.io/jp6/cu126/+f/907/c4c1933789645/torchvision-0.23.0-cp310-cp310-linux_aarch64.whl#sha256=907c4c1933789645ebb20dd9181d40f8647978e6bd30086ae7b01febb937d2d1;;            
             11.*) echo "Please download the torch and torchvision wheels manually and install using the wheels";;
             cpu)  pip install torch torchvision torchaudio ;;
             *)    pip install torch torchvision torchaudio ;;
@@ -151,13 +153,12 @@ fi
 # =======================================================
 # Install jetson-utils 
 # =======================================================
+# Make this more dynamic. The jetson-utils package keep on getting installed into the system python path, I then copy it into the conda env. I want it to automatically fetch the system env location then install the jetson utils into it.
 echo "----------------------------------------------------"
 echo "Installing jetson-utils from source..."
 echo "----------------------------------------------------"
 sudo apt update
 sudo apt install -y cmake build-essential git python3-dev
-
-pip install "numpy<2"
 
 WORKDIR=$(pwd)
 cd /tmp
@@ -171,9 +172,12 @@ make -j$(nproc)
 sudo make install
 sudo ldconfig
 
-cd /usr/lib/python3.10/dist-packages
-sudo cp -r jetson_utils /home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/
-sudo cp jetson_utils_python.so /home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/
+SITE_PACKAGES=$($PYTHON_BIN -c "import site; print(site.getsitepackages()[0])")
+echo "Detected site-packages path: $SITE_PACKAGES"
+
+# Copy jetson-utils Python files into the environment
+sudo cp -r jetson_utils "$SITE_PACKAGES/"
+sudo cp jetson_utils_python.so "$SITE_PACKAGES/"
 
 cd $WORKDIR
 
@@ -217,6 +221,7 @@ for pkg in "${PYTHON_PACKAGES[@]}"; do
 done
 pip install termcolor tabulate docker ffmpeg
 pip install accelerate
+sudo apt install -y ffmpeg
 
 pip cache purge || true
 
