@@ -109,13 +109,15 @@ class LiveImageAgent:
         with self.frame_lock:
             self.current_filename = filename
             if USE_JETSON:
-                # On Jetson, store both CUDA and CPU copies
-                self.latest_cuda_frame = frame
-                self.latest_frame = cuda_image(frame)  # CPU copy for inference/overlay
-                inference_frame = self.latest_frame
+                from utils.utils import cudaToNumpy
+                # Convert CUDA image to NumPy (CPU) for inference
+                cpu_frame = cudaToNumpy(frame)  # implement helper using jetson_utils.cudaConvert or cudaImage.download()
+                self.latest_frame = cpu_frame
+                self.latest_cuda_frame = frame  # keep CUDA frame for rendering
             else:
                 self.latest_frame = frame.copy()
-                inference_frame = self.latest_frame
+
+        inference_frame = self.latest_frame
 
         # Start inference thread
         if self.inference_thread is None or not self.inference_thread.is_alive():
