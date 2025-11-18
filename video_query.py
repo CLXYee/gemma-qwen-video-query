@@ -116,6 +116,12 @@ def main():
         choices=['cuda', 'np', 'pt'],
         help="Tensors output format: 'cuda' (GPU), 'np' (NumPy), 'pt' (PyTorch). Defaults to 'cuda'.",
     )
+    parser.add_argument(
+        "--wait_time",
+        type=int,
+        default=10,
+        help="Wait time of displaying each image in image mode (in seconds)"
+    )
 
 
     args = parser.parse_args()
@@ -172,7 +178,7 @@ def main():
         agent = LiveImageAgent(describer, image_folder=args.image_source, 
                                prompt=args.prompt, max_tokens=args.max_tokens,
                                save_output= args.save_output, output_file=args.output_file,
-                               save_video= args.save_video, video_path = args.video_path
+                               save_video= args.save_video, video_path = args.video_path, wait_time=args.wait_time
                                )
 
     # -----------------------------

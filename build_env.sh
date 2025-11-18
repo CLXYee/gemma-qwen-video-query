@@ -173,39 +173,27 @@ sudo ldconfig
 
 PYTHON_BIN=$(which python3)
 
-# Find where jetson-utils is currently installed
-JETSON_SOURCE=$($PYTHON_BIN - << 'EOF'
-import pkgutil, os, site
+# Detect parent directory (dist or site) that contains jetson_utils
+JETSON_SOURCE_PARENT=$($PYTHON_BIN - << 'EOF'
+import pkgutil, os
 
 spec = pkgutil.find_loader("jetson_utils")
 if spec is None:
     exit(1)
 
-# Path to jetson_utils/__init__.py
-module_path = spec.get_filename()
+# Get the directory containing jetson_utils (the package folder)
+pkg_dir = os.path.dirname(spec.get_filename())
 
-# Path to the directory containing the package
-install_dir = os.path.dirname(module_path)
-
-print(install_dir)
+# Return the parent folder (site/dist-packages)
+print(os.path.dirname(pkg_dir))
 EOF
 )
 
-if [ -z "$JETSON_SOURCE" ]; then
-    echo "ERROR: jetson_utils is not installed anywhere."
-    exit 1
-fi
+echo "Detected jetson-utils parent directory: $JETSON_SOURCE_PARENT"
 
-echo "Detected jetson-utils installed at: $JETSON_SOURCE"
-
-
-# 2️⃣ Detect active site-packages
 SITE_PACKAGES=$($PYTHON_BIN - << 'EOF'
 import site, sys
-
-# Prefer environment-specific site-packages (virtualenv, conda, user)
 paths = [site.getusersitepackages()] + site.getsitepackages()
-
 for p in paths:
     if p.startswith(sys.prefix):
         print(p)
@@ -215,12 +203,13 @@ EOF
 
 echo "Detected target site-packages: $SITE_PACKAGES"
 
+
+# Copy jetson-utils into site-packages
 echo "Copying jetson-utils → site-packages..."
-sudo cp -r "$JETSON_SOURCE/jetson_utils" "$SITE_PACKAGES/"
-sudo cp "$JETSON_SOURCE/jetson_utils_python.so" "$SITE_PACKAGES/"
+sudo cp -r "$JETSON_SOURCE_PARENT/jetson_utils" "$SITE_PACKAGES/"
+sudo cp "$JETSON_SOURCE_PARENT/jetson_utils_python.so" "$SITE_PACKAGES/"
 
-echo "Done. jetson-utils has been copied into your active site-packages."
-
+echo "Done."
 
 cd $WORKDIR
 

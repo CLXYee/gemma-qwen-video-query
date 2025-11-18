@@ -46,7 +46,8 @@ class LiveImageAgent:
     def __init__(self, describer, image_folder="./selected",
                  prompt=None, max_tokens=16,
                  save_output=False, output_file="prompt_history.csv",
-                 save_video=False, video_path="output.mp4"):
+                 save_video=False, video_path="output.mp4",
+                 wait_time=10):
 
         self.describer = describer
         self.image_folder = image_folder
@@ -57,6 +58,7 @@ class LiveImageAgent:
         self.save_video = save_video
         self.video_path = video_path
         self.stop_event = threading.Event()
+        self.wait_time = wait_time
 
         self.prompt_history = []
         self.catch_time = []
@@ -335,7 +337,7 @@ class LiveImageAgent:
 
                     # Send frame to inference + display
                     self.on_frame(np_frame, os.path.basename(filename))
-                    time.sleep(10)  # wait 10 seconds before next image
+                    time.sleep(self.wait_time)  # wait 10 seconds before next image
 
         except KeyboardInterrupt:
             print("\n[KeyboardInterrupt] Gracefully stopping...")
