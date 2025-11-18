@@ -95,7 +95,7 @@ class LiveImageAgent:
             self.video_output = VideoOutput(width=1280, height=720)
             self.latest_cuda_frame = None 
         else:
-            self.display = None
+            self.video_output = None
 
 
     # -------------------------------
@@ -259,8 +259,8 @@ class LiveImageAgent:
 
             if USE_JETSON:
                 # GPU-safe overlay + render
-                frame_with_text = self.display.overlay_text(frame_to_render, caption)
-                self.display.render(frame_with_text)
+                frame_with_text = self.video_output.overlay_text(frame_to_render, caption)
+                self.video_output.render(frame_with_text)
             else:
                 # CPU overlay + display
                 annotated_cpu = self._overlay_text(frame_to_render, caption)
