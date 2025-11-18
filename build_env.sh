@@ -171,45 +171,110 @@ make -j$(nproc)
 sudo make install
 sudo ldconfig
 
+#!/usr/bin/env bash
+set -euo pipefail
+
 PYTHON_BIN=$(which python3)
 
-# Detect parent directory (dist or site) that contains jetson_utils
-JETSON_SOURCE_PARENT=$($PYTHON_BIN - << 'EOF'
-import pkgutil, os
-
-spec = pkgutil.find_loader("jetson_utils")
-if spec is None:
-    exit(1)
-
-# Get the directory containing jetson_utils (the package folder)
-pkg_dir = os.path.dirname(spec.get_filename())
-
-# Return the parent folder (site/dist-packages)
-print(os.path.dirname(pkg_dir))
-EOF
-)
-
-echo "Detected jetson-utils parent directory: $JETSON_SOURCE_PARENT"
-
-SITE_PACKAGES=$($PYTHON_BIN - << 'EOF'
+# 1) Detect target site-packages for the active Python environment
+TARGET_SITE_PACKAGES=$($PYTHON_BIN - <<'PY'
 import site, sys
 paths = [site.getusersitepackages()] + site.getsitepackages()
 for p in paths:
     if p.startswith(sys.prefix):
         print(p)
         break
-EOF
+PY
 )
 
-echo "Detected target site-packages: $SITE_PACKAGES"
+echo "Detected target site-packages: $TARGET_SITE_PACKAGES"
 
+# 2) Gather system dist-packages candidates (force look in system dist-packages)
+#    we pick site.getsitepackages() entries that end with 'dist-packages' and NOT in sys.prefix
+SYSTEM_DISTS=$($PYTHON_BIN - <<'PY'
+import site, sys
+dists = []
+for p in site.getsitepackages():
+    if p.endswith('dist-packages') and not p.startswith(sys.prefix):
+        dists.append(p)
+# Also include /usr/lib/pythonX.Y/dist-packages fallback if not already present
+# (construct using sys.version_info)
+fallback = f"/usr/lib/python{sys.version_info.major}.{sys.version_info.minor}/dist-packages"
+if fallback not in dists:
+    dists.append(fallback)
+# print one per line
+print("\n".join(dists))
+PY
+)
 
-# Copy jetson-utils into site-packages
-echo "Copying jetson-utils → site-packages..."
-sudo cp -r "$JETSON_SOURCE_PARENT/jetson_utils" "$SITE_PACKAGES/"
-sudo cp "$JETSON_SOURCE_PARENT/jetson_utils_python.so" "$SITE_PACKAGES/"
+echo "System dist-packages candidates:"
+echo "$SYSTEM_DISTS"
 
-echo "Done."
+# 3) Look for jetson_utils in each system dist-packages candidate
+SOURCE_PARENT=""
+while IFS= read -r distp; do
+    [ -z "$distp" ] && continue
+    if [ -d "$distp/jetson_utils" ] || [ -f "$distp/jetson_utils_python.so" ]; then
+        SOURCE_PARENT="$distp"
+        break
+    fi
+done <<< "$SYSTEM_DISTS"
+
+if [ -n "$SOURCE_PARENT" ]; then
+    echo "Found jetson-utils in system dist-packages: $SOURCE_PARENT"
+
+    # Prepare source paths (either directory or file may exist)
+    SRC_PKG_DIR="$SOURCE_PARENT/jetson_utils"
+    SRC_SO="$SOURCE_PARENT/jetson_utils_python.so"
+
+    # ensure destination exists
+    sudo mkdir -p "$TARGET_SITE_PACKAGES"
+
+    # Compare realpaths to avoid copying into itself (same env case)
+    if [ -e "$SRC_PKG_DIR" ]; then
+        SRC_REAL=$(realpath "$SRC_PKG_DIR")
+        DST_REAL=$(realpath "$TARGET_SITE_PACKAGES/jetson_utils" 2>/dev/null || true)
+
+        if [ -n "$DST_REAL" ] && [ "$SRC_REAL" = "$DST_REAL" ]; then
+            echo "Package directory is already the same as target. No copy needed:"
+            echo "  $SRC_REAL"
+        else
+            echo "Copying package directory from system dist to target site-packages..."
+            sudo cp -r "$SRC_PKG_DIR" "$TARGET_SITE_PACKAGES/"
+            echo "Copied: $SRC_PKG_DIR -> $TARGET_SITE_PACKAGES/"
+        fi
+    fi
+
+    if [ -f "$SRC_SO" ]; then
+        # If .so already exists at destination, compare real paths
+        DST_SO="$TARGET_SITE_PACKAGES/jetson_utils_python.so"
+        if [ -e "$DST_SO" ] && [ "$(realpath "$SRC_SO")" = "$(realpath "$DST_SO")" ]; then
+            echo "Binary .so already present and identical. No copy needed."
+        else
+            echo "Copying binary .so from system dist to target site-packages..."
+            sudo cp "$SRC_SO" "$TARGET_SITE_PACKAGES/"
+            echo "Copied: $SRC_SO -> $TARGET_SITE_PACKAGES/"
+        fi
+    fi
+
+    echo "Done. jetson-utils copied from system dist-packages to target site-packages."
+
+else
+    echo "No jetson-utils found in system dist-packages candidates."
+    echo "Now checking whether jetson-utils already exists in the target site-packages..."
+
+    # check in target site-packages
+    if [ -d "$TARGET_SITE_PACKAGES/jetson_utils" ] || [ -f "$TARGET_SITE_PACKAGES/jetson_utils_python.so" ]; then
+        echo "jetson-utils already present in the target site-packages: $TARGET_SITE_PACKAGES"
+        echo "No action needed."
+    else
+        echo "ERROR: jetson-utils not found in system dist-packages nor in target site-packages."
+        echo "You can either:"
+        echo "  - build the wheel and pip install it into this environment"
+        echo "  - or place the built files into: $TARGET_SITE_PACKAGES/"
+        exit 1
+    fi
+fi
 
 cd $WORKDIR
 
