@@ -307,7 +307,7 @@ class LiveImageAgent:
     # Start/stop lifecycle
     # -------------------------------
     def start(self):
-        """Start looping through images as frames continuously"""
+        """Start looping through images and optionally render output."""
         if not self.images:
             print("[ImageAgent] No images found to display.")
             return
@@ -316,57 +316,88 @@ class LiveImageAgent:
         self.stop_event.clear()
         self.running = True
 
-        # Set up video writer if saving video
+        # -------------------------------------------------
+        # Setup video writer if saving video
+        # -------------------------------------------------
         if self.save_video and self.images:
-            sample_img = Image.open(self.images[0])
-            self.video_width, self.video_height = sample_img.size
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # try XVID if mp4v causes issues
-            self.video_writer = cv2.VideoWriter(
-                self.video_path,
-                fourcc,
-                max(60, self.fps),
-                (self.video_width, self.video_height)
+            try:
+                sample_img = Image.open(self.images[0]).convert("RGB")
+                self.video_width, self.video_height = sample_img.size
+
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                self.video_writer = cv2.VideoWriter(
+                    self.video_path,
+                    fourcc,
+                    max(60, self.fps),
+                    (self.video_width, self.video_height)
+                )
+                print(f"[VideoWriter] Initialized at {self.video_width}×{self.video_height}")
+            except Exception as e:
+                print(f"[VideoWriter] Failed to initialize: {e}")
+                self.video_writer = None
+
+        # -------------------------------------------------
+        # Start display thread (PC only; Jetson must avoid EGL threading)
+        # -------------------------------------------------
+        self.display_thread = None
+        if not USE_JETSON:
+            print("[Display] Starting display thread (PC mode)")
+            self.display_thread = threading.Thread(
+                target=self.display_loop,
+                daemon=True
             )
+            self.display_thread.start()
+        else:
+            print("[Display] Jetson mode → Display will run on main thread only")
 
-        # Start display thread
-        self.display_thread = threading.Thread(target=self.display_loop, daemon=True)
-        self.display_thread.start()
-
+        # -------------------------------------------------
+        # Main image loop
+        # -------------------------------------------------
         try:
-            # Continuous looping through images
             while self.running and not self.stop_event.is_set():
+
                 for filename in self.images:
                     if self.stop_event.is_set() or not self.running:
                         break
 
-
                     try:
-                        img = Image.open(filename).convert('RGB')
-                        self.last_caption = "Loading..."
+                        img = Image.open(filename).convert("RGB")
                         np_frame = np.array(img)
+                        self.last_caption = "Loading..."
                     except Exception as e:
                         print(f"[ImageAgent] Failed to load {filename}: {e}")
                         continue
 
-                    # Send frame to inference + display
+                    # GPU conversion only for Jetson mode
                     if USE_JETSON:
-                        cuda_frame = cuda_image(np_frame)
-                        self.on_frame(cuda_frame, os.path.basename(filename))
+                        try:
+                            cuda_frame = cuda_image(np_frame)
+                            self.on_frame(cuda_frame, os.path.basename(filename))
+                        except Exception as e:
+                            print(f"[Jetson] CUDA conversion failed: {e}")
                     else:
                         self.on_frame(np_frame, os.path.basename(filename))
-                    time.sleep(self.wait_time)  # wait 10 seconds before next image
+
+                    # For Jetson: call display from main thread
+                    if USE_JETSON and self.video_output is not None:
+                        self.display_loop()
+
+                    time.sleep(self.wait_time)
 
         except KeyboardInterrupt:
             print("\n[KeyboardInterrupt] Gracefully stopping...")
             self.stop_event.set()
-            self.stop()
+            self.running = False
 
         finally:
-            # Always release video writer and cleanup
+            # ---------------------------
+            # Cleanup
+            # ---------------------------
             if self.catch_time:
                 print(f"[PROCESS COMPLETE] Average inference time: {np.mean(self.catch_time):.2f}s")
 
             self._save_history()
+
             if self.save_video and self.video_writer:
                 print(f"[Video] Saved to: {self.video_path}")
                 self.video_writer.release()
@@ -374,10 +405,14 @@ class LiveImageAgent:
 
             self.running = False
             print("[ImageAgent] Stopped.")
+
             if self.display_thread and self.display_thread.is_alive():
+                print("[Display] Joining display thread...")
                 self.display_thread.join(timeout=1)
+
             if not USE_JETSON:
                 cv2.destroyAllWindows()
+
 
     def stop(self):
         """Stop all processes gracefully."""

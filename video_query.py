@@ -1,6 +1,26 @@
 # video_query.py
 import argparse
 import time
+import os
+
+def detect_jetson():
+    try:
+        import jetson_utils
+        return True
+    except ImportError:
+        pass
+
+    # Check device-tree model 
+    model_path = "/proc/device-tree/model"
+    if os.path.exists(model_path):
+        try:
+            with open(model_path, "r") as f:
+                model = f.read()
+                if "NVIDIA" in model or "Jetson" in model:
+                    return True
+        except:
+            pass
+    return False
 
 def main():
     parser = argparse.ArgumentParser(
@@ -187,11 +207,18 @@ def main():
     if args.mode == "image":
         try:
             agent.start()
+            # If Jetson → manually loop display because no thread exists
+            if detect_jetson():
+                while not agent.stop_event.is_set():
+                    agent.display_loop()
+            else:
+                # PC → display thread already running
+                agent.display_thread.join()
+
         except KeyboardInterrupt:
             print("[INFO] Interrupted by user, stopping agent...")
             agent.stop()
-            agent.stop_event.set()  # signal all loops to stop
-            agent.release_resources()
+            agent.stop_event.set()  
     else:
         try:
             agent.start()

@@ -55,3 +55,4 @@ def cudaDrawText(image, text, position=(10, 10), color=None):
         _font.OverlayText(image, text, x=position[0], y=position[1], color=color)
     except Exception as e:
         print(f"[cudaDrawText] Failed to draw text: {e}")
+
