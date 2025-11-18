@@ -88,6 +88,7 @@ class VideoOutput:
         Draw text on CUDA frame using jetson-utils' cudaFont (GPU overlay).
         Uses wrap_text internally for consistent rendering with background support.
         """
+        #resize
         try:
             x, y = position
             color = self.font.White

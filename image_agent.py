@@ -40,17 +40,18 @@ USE_JETSON = detect_jetson()
 if USE_JETSON:
     import jetson_utils
     from utils.image import cuda_image
+    from utils.utils import cudaToNumpy
 
 
 
 class LiveImageAgent:
-    def __init__(self, describer, image_folder="./selected",
+    def __init__(self, describer, image_source,
                  prompt=None, max_tokens=16,
                  save_output=False, output_file="prompt_history.csv",
                  save_video=False, video_path="output.mp4", wait_time=10):
 
         self.describer = describer
-        self.image_folder = image_folder
+        self.image_source = image_source
         self.prompt = prompt
         self.max_tokens = max_tokens
         self.save_output = save_output
@@ -101,23 +102,31 @@ class LiveImageAgent:
     # -------------------------------
     # Core image/frame processing
     # -------------------------------
-    def on_frame(self, frame, filename):
-        """Handle new frame input and start inference thread."""
+    def on_frame(self, frame, filename, max_inference_dim=512):
+        """Keep high-res for display; resized for inference"""
         if frame is None:
             return
 
         with self.frame_lock:
             self.current_filename = filename
+
+            # High-res frame for display
             if USE_JETSON:
-                from utils.utils import cudaToNumpy
-                # Convert CUDA image to NumPy (CPU) for inference
-                cpu_frame = cudaToNumpy(frame)  # implement helper using jetson_utils.cudaConvert or cudaImage.download()
-                self.latest_frame = cpu_frame
-                self.latest_cuda_frame = frame  # keep CUDA frame for rendering
+                self.latest_cuda_frame = frame
+                self.latest_frame = cudaToNumpy(frame)  # optional for display
+
             else:
                 self.latest_frame = frame.copy()
 
-        inference_frame = self.latest_frame
+            # Resize CPU frame for inference
+            cpu_frame = cudaToNumpy(frame) if USE_JETSON else frame
+            h, w = cpu_frame.shape[:2]
+            scale = max_inference_dim / max(h, w)
+            if scale < 1.0:
+                new_w, new_h = int(w * scale), int(h * scale)
+                inference_frame = np.array(Image.fromarray(cpu_frame).resize((new_w, new_h), Image.LANCZOS))
+            else:
+                inference_frame = cpu_frame.copy()
 
         # Start inference thread
         if self.inference_thread is None or not self.inference_thread.is_alive():
@@ -127,6 +136,15 @@ class LiveImageAgent:
                 daemon=True
             )
             self.inference_thread.start()
+
+
+    def resize_for_jetson(np_frame, max_dim=512):
+        h, w = np_frame.shape[:2]
+        scale = max_dim / max(h, w)
+        if scale < 1.0:
+            new_w, new_h = int(w * scale), int(h * scale)
+            np_frame = np.array(Image.fromarray(np_frame).resize((new_w, new_h), Image.LANCZOS))
+        return np_frame
 
     def _run_inference(self, frame, filename):
         """Run inference on one frame (numpy array)"""

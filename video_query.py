@@ -191,15 +191,20 @@ def main():
                             )
     else:
         print("[INFO] Image mode selected. Launching image agent...")
-        from image_agent import LiveImageAgent
-        if args.prompt == None:
-            args.prompt = "Describe the image in detailed within 200 words. Include features of the landscape, activities, possible region, possible country, and quantitative features if applicable. Avoid using special characters."
-        args.max_tokens = 256
-        agent = LiveImageAgent(describer, image_folder=args.image_source, 
-                               prompt=args.prompt, max_tokens=args.max_tokens,
-                               save_output= args.save_output, output_file=args.output_file,
-                               save_video= args.save_video, video_path = args.video_path, wait_time=args.wait_time
-                               )
+        if detect_jetson():
+            from display import VideoOutput
+            from image_source import ImageSource
+            from image_agent_jetson import LiveImageAgent
+            if args.prompt == None:
+                args.prompt = "Describe the image in detailed within 100 words. Include features of the landscape, activities, possible region, possible country, and quantitative features if applicable. Avoid using special characters."
+            args.max_tokens = 256
+            image_source = ImageSource(args.image_source)
+            video_output = VideoOutput(width=args.width, height=args.height)
+            agent = LiveImageAgent(describer, image_source, video_output=video_output,
+                                prompt=args.prompt, max_tokens=args.max_tokens,
+                                save_output= args.save_output, output_file=args.output_file,
+                                save_video= args.save_video, video_path = args.video_path
+                                )
 
     # -----------------------------
     # Run display or background mode
@@ -209,7 +214,7 @@ def main():
             agent.start()
             # If Jetson → manually loop display because no thread exists
             if detect_jetson():
-                while not agent.stop_event.is_set():
+                while agent.running:
                     agent.display_loop()
             else:
                 # PC → display thread already running
@@ -218,7 +223,6 @@ def main():
         except KeyboardInterrupt:
             print("[INFO] Interrupted by user, stopping agent...")
             agent.stop()
-            agent.stop_event.set()  
     else:
         try:
             agent.start()
