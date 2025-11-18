@@ -109,21 +109,19 @@ class LiveImageAgent:
         with self.frame_lock:
             self.current_filename = filename
             if USE_JETSON:
-                # On Jetson, convert CUDA image to numpy for inference
-                cpu_frame = cuda_image(frame)  # CPU copy for inference
-                self.latest_frame = cpu_frame
-                self.latest_cuda_frame = frame  # keep CUDA frame for rendering
+                # On Jetson, store both CUDA and CPU copies
+                self.latest_cuda_frame = frame
+                self.latest_frame = cuda_image(frame)  # CPU copy for inference/overlay
+                inference_frame = self.latest_frame
             else:
-                # Non-Jetson: frame is already numpy
                 self.latest_frame = frame.copy()
+                inference_frame = self.latest_frame
 
-            # Use CPU frame for inference
-            inference_frame = self.latest_frame
-
+        # Start inference thread
         if self.inference_thread is None or not self.inference_thread.is_alive():
             self.inference_thread = threading.Thread(
                 target=self._run_inference,
-                args=(inference_frame, filename),  # pass CPU frame, not CUDA
+                args=(inference_frame, filename),
                 daemon=True
             )
             self.inference_thread.start()
@@ -248,35 +246,24 @@ class LiveImageAgent:
         print("[Display] Starting display loop... (Press ESC to quit)")
 
         while self.running and not self.stop_event.is_set():
-            # Grab current frame and caption
             with self.frame_lock:
                 caption = self.last_caption
-                if USE_JETSON:
-                    frame_to_render = self.latest_cuda_frame
-                else:
-                    frame_to_render = self.latest_frame.copy() if self.latest_frame is not None else None
+                cpu_frame = self.latest_frame  # CPU frame for overlay and inference
+                cuda_frame = self.latest_cuda_frame  # only for rendering
 
-            if frame_to_render is None:
+            if cpu_frame is None:
                 time.sleep(0.1)
                 continue
 
             # Overlay text on CPU frame
-            annotated_cpu = self._overlay_text(frame_to_render, caption)
+            annotated_cpu = self._overlay_text(cpu_frame, caption)
 
-            # -----------------------------
-            # Jetson display
-            # -----------------------------
             if USE_JETSON:
-                with self.frame_lock:
-                    if self.latest_cuda_frame is not None:
-                        # Convert overlayed CPU frame to CUDA for rendering
-                        annotated_cuda = cuda_image(annotated_cpu)
-                        self.display.RenderOnce(annotated_cuda)
-                        self.display.SetStatus("Gemma3 Image Describer")
+                # Convert annotated CPU frame to CUDA for Jetson rendering
+                annotated_cuda = cuda_image(annotated_cpu)
+                self.display.RenderOnce(annotated_cuda)
+                self.display.SetStatus("Gemma3 Image Describer")
 
-            # -----------------------------
-            # Non-Jetson display (OpenCV or PIL)
-            # -----------------------------
             else:
                 if CV2_AVAILABLE:
                     cv2.imshow("Gemma3 Image Describer", annotated_cpu)
@@ -286,13 +273,10 @@ class LiveImageAgent:
                         cv2.destroyAllWindows()
                         break
                 else:
-                    # fallback pop-up window using PIL
                     Image.fromarray(annotated_cpu).show()
                     time.sleep(1)
 
-            # -----------------------------
             # Save video if enabled
-            # -----------------------------
             if self.save_video and self.video_writer:
                 try:
                     frame_to_write = cv2.resize(annotated_cpu, (self.video_width, self.video_height))
@@ -302,6 +286,7 @@ class LiveImageAgent:
 
             if self.stop_event.is_set():
                 break
+
 
     # -------------------------------
     # File I/O and logs
