@@ -107,10 +107,11 @@ class LiveImageAgent:
             return
 
         with self.frame_lock:
-            self.latest_frame = frame
+            self.latest_frame = frame.copy()  # CPU copy for inference
             self.current_filename = filename
             if USE_JETSON:
-                self.latest_cuda_frame = cuda_image(frame)
+                self.latest_cuda_frame = cuda_image(frame)  # GPU copy for display
+
 
 
         if self.inference_thread is None or not self.inference_thread.is_alive():
@@ -241,28 +242,35 @@ class LiveImageAgent:
         print("[Display] Starting display loop... (Press ESC to quit)")
 
         while self.running and not self.stop_event.is_set():
+            # Grab current frame and caption
             with self.frame_lock:
-                frame = self.latest_frame.copy() if self.latest_frame is not None else None
+                cpu_frame = self.latest_frame.copy() if self.latest_frame is not None else None
                 caption = self.last_caption
 
-            if frame is None:
+            if cpu_frame is None:
                 time.sleep(0.1)
                 continue
 
-            annotated = self._overlay_text(frame, caption)
+            # Overlay text on CPU frame
+            annotated_cpu = self._overlay_text(cpu_frame, caption)
 
-            # Render frame
+            # -----------------------------
+            # Jetson display
+            # -----------------------------
             if USE_JETSON:
                 with self.frame_lock:
                     if self.latest_cuda_frame is not None:
-                        # overlay text directly on CUDA frame (like LiveVideoAgent)
-                        annotated_cuda = cuda_image(annotated)
+                        # Convert overlayed CPU frame to CUDA for rendering
+                        annotated_cuda = cuda_image(annotated_cpu)
                         self.display.RenderOnce(annotated_cuda)
                         self.display.SetStatus("Gemma3 Image Describer")
 
+            # -----------------------------
+            # Non-Jetson display (OpenCV or PIL)
+            # -----------------------------
             else:
                 if CV2_AVAILABLE:
-                    cv2.imshow("Gemma3 Image Describer", annotated)
+                    cv2.imshow("Gemma3 Image Describer", annotated_cpu)
                     key = cv2.waitKey(50)
                     if key == 27:
                         self.stop()
@@ -270,20 +278,21 @@ class LiveImageAgent:
                         break
                 else:
                     # fallback pop-up window using PIL
-                    Image.fromarray(annotated).show()
+                    Image.fromarray(annotated_cpu).show()
                     time.sleep(1)
 
-            if self.stop_event.is_set():
-                break
-            
+            # -----------------------------
+            # Save video if enabled
+            # -----------------------------
             if self.save_video and self.video_writer:
                 try:
-                    # Ensure frame matches the initialized video size
-                    frame_to_write = cv2.resize(annotated, (self.video_width, self.video_height))
-                    # Ensure correct color format (BGR)
+                    frame_to_write = cv2.resize(annotated_cpu, (self.video_width, self.video_height))
                     self.video_writer.write(frame_to_write)
                 except Exception as e:
                     print(f"[VideoWriter Error] Failed to write frame: {e}")
+
+            if self.stop_event.is_set():
+                break
 
     # -------------------------------
     # File I/O and logs
