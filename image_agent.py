@@ -39,6 +39,7 @@ def detect_jetson():
 USE_JETSON = detect_jetson()
 if USE_JETSON:
     import jetson_utils
+    from utils.image import cuda_image
 
 
 
@@ -109,7 +110,7 @@ class LiveImageAgent:
             self.latest_frame = frame
             self.current_filename = filename
             if USE_JETSON:
-                self.latest_cuda_frame = jetson_utils.cudaFromNumpy(frame)
+                self.latest_cuda_frame = cuda_image(frame)
 
 
         if self.inference_thread is None or not self.inference_thread.is_alive():
@@ -255,7 +256,7 @@ class LiveImageAgent:
                 with self.frame_lock:
                     if self.latest_cuda_frame is not None:
                         # overlay text directly on CUDA frame (like LiveVideoAgent)
-                        annotated_cuda = jetson_utils.cudaFromNumpy(annotated)
+                        annotated_cuda = cuda_image(annotated)
                         self.display.RenderOnce(annotated_cuda)
                         self.display.SetStatus("Gemma3 Image Describer")
 
@@ -346,7 +347,7 @@ class LiveImageAgent:
 
                     # Send frame to inference + display
                     if USE_JETSON:
-                        cuda_frame = jetson_utils.cudaFromNumpy(np_frame)
+                        cuda_frame = cuda_image(np_frame)
                         self.on_frame(cuda_frame, os.path.basename(filename))
                     else:
                         self.on_frame(np_frame, os.path.basename(filename))

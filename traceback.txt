@@ -1,0 +1,49 @@
+Traceback (most recent call last):  File "/home/nvidia/Downloads/gemma-qwen-video-query/video_query.py", line 212, in <module>
+    main()
+  File "/home/nvidia/Downloads/gemma-qwen-video-query/video_query.py", line 140, in main
+    from model import Gemma3ImageDescriber
+  File "/home/nvidia/Downloads/gemma-qwen-video-query/model.py", line 2, in <module>
+    import torch
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/__init__.py", line 2270, in <module>
+    from torch import quantization as quantization  # usort: skip
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/quantization/__init__.py", line 2, in <module>
+    from .fake_quantize import *  # noqa: F403
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/quantization/fake_quantize.py", line 10, in <module>
+    from torch.ao.quantization.fake_quantize import (
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/ao/quantization/__init__.py", line 13, in <module>
+    from .pt2e._numeric_debugger import (  # noqa: F401
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/ao/quantization/pt2e/_numeric_debugger.py", line 9, in <module>
+    from torch.ao.quantization.pt2e.graph_utils import bfs_trace_with_node_process
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/ao/quantization/pt2e/graph_utils.py", line 9, in <module>
+    from torch.export import ExportedProgram
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/export/__init__.py", line 41, in <module>
+    from .decomp_utils import CustomDecompTable
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/export/decomp_utils.py", line 5, in <module>
+    from torch._export.utils import (
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/_export/__init__.py", line 48, in <module>
+    from .wrappers import _wrap_submodules
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/_export/wrappers.py", line 7, in <module>
+    from torch._higher_order_ops.flat_apply import (
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/_higher_order_ops/__init__.py", line 1, in <module>
+    from torch._higher_order_ops._invoke_quant import (
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/_higher_order_ops/_invoke_quant.py", line 8, in <module>
+    from torch._higher_order_ops.base_hop import BaseHOP, FunctionWithNoFreeVars
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/_higher_order_ops/base_hop.py", line 9, in <module>
+    from torch._higher_order_ops.auto_functionalize import FunctionalCallableWithEpilogue
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/_higher_order_ops/auto_functionalize.py", line 13, in <module>
+    from torch._higher_order_ops.utils import (
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/_higher_order_ops/utils.py", line 16, in <module>
+    from torch._subclasses.functional_tensor import (
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/_subclasses/functional_tensor.py", line 46, in <module>
+    class FunctionalTensor(torch.Tensor):
+  File "/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/_subclasses/functional_tensor.py", line 279, in FunctionalTensor
+    cpu = _conversion_method_template(device=torch.device("cpu"))
+/home/nvidia/miniconda3/envs/video_query/lib/python3.10/site-packages/torch/_subclasses/functional_tensor.py:279: UserWarning: Failed to initialize NumPy: 
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.2.6 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
