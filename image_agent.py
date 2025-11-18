@@ -1,4 +1,4 @@
-# image_agent.py
+# image_agent.py 
 import threading
 import time
 import os
@@ -19,7 +19,7 @@ import unicodedata
 
 def detect_jetson():
     try:
-        import jetson.utils
+        import jetson_utils
         return True
     except ImportError:
         pass
@@ -38,7 +38,7 @@ def detect_jetson():
 
 USE_JETSON = detect_jetson()
 if USE_JETSON:
-    import jetson.utils
+    import jetson_utils
 
 
 
@@ -46,8 +46,7 @@ class LiveImageAgent:
     def __init__(self, describer, image_folder="./selected",
                  prompt=None, max_tokens=16,
                  save_output=False, output_file="prompt_history.csv",
-                 save_video=False, video_path="output.mp4",
-                 wait_time=10):
+                 save_video=False, video_path="output.mp4", wait_time=10):
 
         self.describer = describer
         self.image_folder = image_folder
@@ -91,9 +90,12 @@ class LiveImageAgent:
 
         # Set up Jetson or OpenCV display
         if USE_JETSON:
-            self.display = jetson.utils.videoOutput()
+            from display import VideoOutput
+            self.display = VideoOutput(width=1280, height=720)
+            self.latest_cuda_frame = None 
         else:
             self.display = None
+
 
     # -------------------------------
     # Core image/frame processing
@@ -106,6 +108,9 @@ class LiveImageAgent:
         with self.frame_lock:
             self.latest_frame = frame
             self.current_filename = filename
+            if USE_JETSON:
+                self.latest_cuda_frame = jetson_utils.cudaFromNumpy(frame)
+
 
         if self.inference_thread is None or not self.inference_thread.is_alive():
             self.inference_thread = threading.Thread(
@@ -247,9 +252,13 @@ class LiveImageAgent:
 
             # Render frame
             if USE_JETSON:
-                cuda_img = jetson.utils.cudaFromNumpy(annotated)
-                self.display.RenderOnce(cuda_img)
-                self.display.SetStatus("Gemma3 Image Describer")
+                with self.frame_lock:
+                    if self.latest_cuda_frame is not None:
+                        # overlay text directly on CUDA frame (like LiveVideoAgent)
+                        annotated_cuda = jetson_utils.cudaFromNumpy(annotated)
+                        self.display.RenderOnce(annotated_cuda)
+                        self.display.SetStatus("Gemma3 Image Describer")
+
             else:
                 if CV2_AVAILABLE:
                     cv2.imshow("Gemma3 Image Describer", annotated)
@@ -336,7 +345,11 @@ class LiveImageAgent:
                         continue
 
                     # Send frame to inference + display
-                    self.on_frame(np_frame, os.path.basename(filename))
+                    if USE_JETSON:
+                        cuda_frame = jetson_utils.cudaFromNumpy(np_frame)
+                        self.on_frame(cuda_frame, os.path.basename(filename))
+                    else:
+                        self.on_frame(np_frame, os.path.basename(filename))
                     time.sleep(self.wait_time)  # wait 10 seconds before next image
 
         except KeyboardInterrupt:
@@ -382,7 +395,9 @@ class LiveImageAgent:
             self.video_writer = None
             print(f"[VideoWriter] Saved video to {self.video_path}")
 
-        if not USE_JETSON:
+        if USE_JETSON:
+            self.latest_cuda_frame = None
+        else:
             cv2.destroyAllWindows()
 
         print("[ImageAgent] Stopped.")
