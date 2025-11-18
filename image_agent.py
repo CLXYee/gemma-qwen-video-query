@@ -92,7 +92,7 @@ class LiveImageAgent:
         # Set up Jetson or OpenCV display
         if USE_JETSON:
             from display import VideoOutput
-            self.display = VideoOutput(width=1280, height=720)
+            self.video_output = VideoOutput(width=1280, height=720)
             self.latest_cuda_frame = None 
         else:
             self.display = None
@@ -248,23 +248,22 @@ class LiveImageAgent:
         while self.running and not self.stop_event.is_set():
             with self.frame_lock:
                 caption = self.last_caption
-                cpu_frame = self.latest_frame  # CPU frame for overlay and inference
-                cuda_frame = self.latest_cuda_frame  # only for rendering
+                if USE_JETSON:
+                    frame_to_render = self.latest_cuda_frame
+                else:
+                    frame_to_render = self.latest_frame.copy() if self.latest_frame is not None else None
 
-            if cpu_frame is None:
+            if frame_to_render is None:
                 time.sleep(0.1)
                 continue
 
-            # Overlay text on CPU frame
-            annotated_cpu = self._overlay_text(cpu_frame, caption)
-
             if USE_JETSON:
-                # Convert annotated CPU frame to CUDA for Jetson rendering
-                annotated_cuda = cuda_image(annotated_cpu)
-                self.display.RenderOnce(annotated_cuda)
-                self.display.SetStatus("Gemma3 Image Describer")
-
+                # GPU-safe overlay + render
+                frame_with_text = self.display.overlay_text(frame_to_render, caption)
+                self.display.render(frame_with_text)
             else:
+                # CPU overlay + display
+                annotated_cpu = self._overlay_text(frame_to_render, caption)
                 if CV2_AVAILABLE:
                     cv2.imshow("Gemma3 Image Describer", annotated_cpu)
                     key = cv2.waitKey(50)
@@ -276,7 +275,7 @@ class LiveImageAgent:
                     Image.fromarray(annotated_cpu).show()
                     time.sleep(1)
 
-            # Save video if enabled
+            # Save video if enabled (always CPU frame)
             if self.save_video and self.video_writer:
                 try:
                     frame_to_write = cv2.resize(annotated_cpu, (self.video_width, self.video_height))
@@ -286,7 +285,6 @@ class LiveImageAgent:
 
             if self.stop_event.is_set():
                 break
-
 
     # -------------------------------
     # File I/O and logs
