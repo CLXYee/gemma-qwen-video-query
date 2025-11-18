@@ -109,8 +109,7 @@ class LiveImageAgent:
         with self.frame_lock:
             self.current_filename = filename
             if USE_JETSON:
-                # On Jetson, keep latest_frame as None or as CPU copy separately if available
-                # For inference, convert CUDA image to numpy
+                # On Jetson, convert CUDA image to numpy for inference
                 cpu_frame = cuda_image(frame)  # CPU copy for inference
                 self.latest_frame = cpu_frame
                 self.latest_cuda_frame = frame  # keep CUDA frame for rendering
@@ -118,10 +117,13 @@ class LiveImageAgent:
                 # Non-Jetson: frame is already numpy
                 self.latest_frame = frame.copy()
 
+            # Use CPU frame for inference
+            inference_frame = self.latest_frame
+
         if self.inference_thread is None or not self.inference_thread.is_alive():
             self.inference_thread = threading.Thread(
                 target=self._run_inference,
-                args=(frame, filename),
+                args=(inference_frame, filename),  # pass CPU frame, not CUDA
                 daemon=True
             )
             self.inference_thread.start()
@@ -248,15 +250,18 @@ class LiveImageAgent:
         while self.running and not self.stop_event.is_set():
             # Grab current frame and caption
             with self.frame_lock:
-                cpu_frame = self.latest_frame.copy() if self.latest_frame is not None else None
                 caption = self.last_caption
+                if USE_JETSON:
+                    frame_to_render = self.latest_cuda_frame
+                else:
+                    frame_to_render = self.latest_frame.copy() if self.latest_frame is not None else None
 
-            if cpu_frame is None:
+            if frame_to_render is None:
                 time.sleep(0.1)
                 continue
 
             # Overlay text on CPU frame
-            annotated_cpu = self._overlay_text(cpu_frame, caption)
+            annotated_cpu = self._overlay_text(frame_to_render, caption)
 
             # -----------------------------
             # Jetson display
