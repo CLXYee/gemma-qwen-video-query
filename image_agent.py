@@ -245,46 +245,43 @@ class LiveImageAgent:
 
 
     def display_loop(self):
-        """Continuously display frames with captions (like video)."""
         print("[Display] Starting display loop... (Press ESC to quit)")
 
         while self.running and not self.stop_event.is_set():
+
             with self.frame_lock:
                 caption = self.last_caption
-                if USE_JETSON:
-                    frame_to_render = self.latest_cuda_frame
-                else:
-                    frame_to_render = self.latest_frame.copy() if self.latest_frame is not None else None
-
-            if frame_to_render is None:
-                time.sleep(0.1)
-                continue
+                frame_cuda = self.latest_cuda_frame if USE_JETSON else None
+                frame_cpu  = self.latest_frame if not USE_JETSON else None
 
             if USE_JETSON:
-                # GPU-safe overlay + render
-                frame_with_text = self.video_output.overlay_text(frame_to_render, caption)
-                self.video_output.render(frame_with_text)
-            else:
-                # CPU overlay + display
-                annotated_cpu = self._overlay_text(frame_to_render, caption)
-                if CV2_AVAILABLE:
-                    cv2.imshow("Gemma3 Image Describer", annotated_cpu)
-                    key = cv2.waitKey(50)
-                    if key == 27:
-                        self.stop()
-                        cv2.destroyAllWindows()
-                        break
-                else:
-                    Image.fromarray(annotated_cpu).show()
-                    time.sleep(1)
+                if frame_cuda is None:
+                    time.sleep(0.05)
+                    continue
 
-            # Save video if enabled (always CPU frame)
-            if self.save_video and self.video_writer:
                 try:
-                    frame_to_write = cv2.resize(annotated_cpu, (self.video_width, self.video_height))
-                    self.video_writer.write(frame_to_write)
+                    frame_with_text = self.video_output.overlay_text(frame_cuda, caption)
+                    self.video_output.render(frame_with_text)
                 except Exception as e:
-                    print(f"[VideoWriter Error] Failed to write frame: {e}")
+                    print("[Jetson Display Error]", e)
+                    time.sleep(0.1)
+                    continue
+
+            else:
+                if frame_cpu is None:
+                    time.sleep(0.05)
+                    continue
+
+                annotated_cpu = self._overlay_text(frame_cpu, caption)
+                cv2.imshow("Gemma3 Image Describer", annotated_cpu)
+                if cv2.waitKey(10) == 27:
+                    self.stop()
+                    break
+
+                if self.save_video and self.video_writer:
+                    self.video_writer.write(
+                        cv2.resize(annotated_cpu, (self.video_width, self.video_height))
+                    )
 
             if self.stop_event.is_set():
                 break
