@@ -107,12 +107,16 @@ class LiveImageAgent:
             return
 
         with self.frame_lock:
-            self.latest_frame = frame.copy()  # CPU copy for inference
             self.current_filename = filename
             if USE_JETSON:
-                self.latest_cuda_frame = cuda_image(frame)  # GPU copy for display
-
-
+                # On Jetson, keep latest_frame as None or as CPU copy separately if available
+                # For inference, convert CUDA image to numpy
+                cpu_frame = cuda_image(frame)  # CPU copy for inference
+                self.latest_frame = cpu_frame
+                self.latest_cuda_frame = frame  # keep CUDA frame for rendering
+            else:
+                # Non-Jetson: frame is already numpy
+                self.latest_frame = frame.copy()
 
         if self.inference_thread is None or not self.inference_thread.is_alive():
             self.inference_thread = threading.Thread(
