@@ -172,12 +172,35 @@ sudo make install
 sudo ldconfig
 
 PYTHON_BIN=$(which python3)
-SITE_PACKAGES=$($PYTHON_BIN -c "import site; print(site.getsitepackages()[0])")
-echo "Detected site-packages path: $SITE_PACKAGES"
 
-# Copy jetson-utils Python files into the environment
-sudo cp -r jetson_utils "$SITE_PACKAGES/"
-sudo cp jetson_utils_python.so "$SITE_PACKAGES/"
+# Detect dist-packages (where jetson-utils gets installed)
+DIST_PACKAGES=$($PYTHON_BIN - << 'EOF'
+import site, sys
+paths = site.getsitepackages()
+# find a path ending with 'dist-packages'
+for p in paths:
+    if p.endswith('dist-packages'):
+        print(p)
+        break
+EOF
+)
+
+# Detect site-packages (target environment)
+SITE_PACKAGES=$($PYTHON_BIN - << 'EOF'
+import site
+# user-level site-packages (in virtualenv/conda)
+print(site.getusersitepackages())
+EOF
+)
+
+echo "Detected dist-packages: $DIST_PACKAGES"
+echo "Detected site-packages: $SITE_PACKAGES"
+
+# Copy jetson-utils from dist → site
+sudo cp -r "$DIST_PACKAGES/jetson_utils" "$SITE_PACKAGES/"
+sudo cp "$DIST_PACKAGES/jetson_utils_python.so" "$SITE_PACKAGES/"
+
+echo "jetson-utils successfully copied from dist-packages to site-packages."
 
 cd $WORKDIR
 
