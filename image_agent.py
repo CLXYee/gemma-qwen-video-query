@@ -131,6 +131,7 @@ class LiveImageAgent:
     def _run_inference(self, frame, filename):
         """Run inference on one frame (numpy array)"""
         try:
+            print("running inference")
             cur_time = time.time()
             description = self.describer.describe_frame(frame, self.prompt, self.max_tokens)
             elapsed = time.time() - cur_time
