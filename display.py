@@ -84,6 +84,7 @@ class VideoOutput:
         try:
             self.display.render(cuda_img)
         except Exception:
+            print("[WARNING] Decreasing resolution")
             self.display.soft_render(cuda_img)
 
     def overlay_text(self, frame, text, position=(10, 30)):

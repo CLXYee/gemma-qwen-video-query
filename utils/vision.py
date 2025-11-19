@@ -5,26 +5,24 @@ from utils.utils import cudaToNumpy
 
 
 class PyDisplay:
-    def __init__(self, width=None, height=None):
+    def __init__(self, width=1280, height=720):
         import os
-        os.environ["SDL_VIDEODRIVER"] = "x11"  # software mode
+        os.environ["SDL_VIDEODRIVER"] = "x11"   # software mode
 
         pygame.init()
-        info = pygame.display.Info()
-        screen_w, screen_h = info.current_w, info.current_h
 
-        if width is None or height is None:
-            self.width = screen_w
-            self.height = screen_h
-            flags = pygame.FULLSCREEN  # no HWSURFACE or DOUBLEBUF
-        else:
-            self.width = width
-            self.height = height
-            flags = 0
+        self.width = width
+        self.height = height
 
-        self.screen = pygame.display.set_mode((self.width, self.height), flags)
+        # IMPORTANT: no hardware surfaces, no double buffer, no fullscreen
+        flags = pygame.RESIZABLE    # safe for Jetson
+
+        self.screen = pygame.display.set_mode(
+            (self.width, self.height),
+            flags
+        )
+
         self.clock = pygame.time.Clock()
-
 
     def render(self, cuda_img):
         img = cudaToNumpy(cuda_img)
