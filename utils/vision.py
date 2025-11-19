@@ -160,7 +160,7 @@ class MatplotlibDisplay:
 
         # Display image
         if self.im_obj is None:
-            self.im_obj = self.ax.imshow(img)
+            self.im_obj = self.ax.imshow(img, interpolation='nearest')
         else:
             self.im_obj.set_data(img)
 
