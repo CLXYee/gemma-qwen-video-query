@@ -4,7 +4,7 @@ import torch
 from jetson_utils import cudaFont
 from utils.utils import cudaToNumpy
 from utils.vision import PyDisplay, MatplotlibDisplay
-from utils.image import wrap_text
+from utils.image import wrap_text, cuda_image
 
 class VideoSource:
     """
@@ -132,25 +132,14 @@ class VideoOutputMatplotlib:
 
     def overlay_text(self, frame, text, position=(10, 30)):
         """
-        Draw text on CUDA frame using jetson-utils' cudaFont.
-        Returns modified frame.
+        Overlay text for consistency with original interface.
+        Just returns the annotated NumPy array.
         """
-        # Normalize text
-        text = (text.replace("’", "'").replace("‘", "'")
-                    .replace("“", '"').replace("”", '"')
-                    .replace("–", "-").replace("—", "-"))
-        text = ''.join(ch for ch in text if ord(ch) < 128)
-
-        try:
-            x, y = position
-            color = self.font.White
-            background = self.font.Gray40
-            wrap_text(self.font, frame, text=text, x=x, y=y, color=color, background=background)
-        except Exception as e:
-            print(f"[VideoOutputMatplotlib] Text overlay error: {e}")
-
-        return frame
-
+        # Use default colors
+        text_color = (255, 255, 255)
+        background_color = (64, 64, 64)
+        frame = self.display._overlay_text_numpy(cudaToNumpy(frame), text, position, text_color, background_color)
+        return cuda_image(frame)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

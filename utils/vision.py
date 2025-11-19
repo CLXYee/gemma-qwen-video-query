@@ -3,6 +3,7 @@ import pygame
 from jetson_utils import cudaDeviceSynchronize
 from utils.utils import cudaToNumpy
 import matplotlib.pyplot as plt
+from PIL import Image, ImageDraw, ImageFont
 
 class PyDisplay:
     def __init__(self, width=1280, height=720):
@@ -174,3 +175,40 @@ class MatplotlibDisplay:
         if max_display_dim:
             self.max_display_dim = max_display_dim
         self.render(cuda_img)
+
+    def _overlay_text_numpy(self, img, text, position=(10,30), text_color=(255,255,255), background_color=(64,64,64), line_spacing=20, line_length=None):
+        """
+        Draw word-wrapped text on a numpy image using PIL.
+        """
+        pil_img = Image.fromarray(img)
+        draw = ImageDraw.Draw(pil_img)
+        font = ImageFont.load_default()  # basic default font
+
+        # compute line length if not provided
+        if line_length is None:
+            line_length = img.shape[1] // 16
+
+        # Split text into words
+        words = text.split()
+        current_line = ""
+        y = position[1]
+        for n, word in enumerate(words):
+            if len(current_line + word) <= line_length:
+                current_line += word + " "
+                if n == len(words) - 1:
+                    # last word
+                    self._draw_text_line(draw, current_line.strip(), position[0], y, font, text_color, background_color)
+            else:
+                self._draw_text_line(draw, current_line.strip(), position[0], y, font, text_color, background_color)
+                current_line = word + " "
+                y += line_spacing
+
+        return np.array(pil_img)
+
+    def _draw_text_line(self, draw, text, x, y, font, text_color, background_color):
+        """
+        Draw one line of text with background rectangle.
+        """
+        text_size = draw.textsize(text, font=font)
+        draw.rectangle([x, y, x + text_size[0], y + text_size[1]], fill=background_color)
+        draw.text((x, y), text, font=font, fill=text_color)
