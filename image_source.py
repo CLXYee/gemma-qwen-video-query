@@ -47,7 +47,7 @@ class ImageSource:
             import torch
             return torch.from_numpy(np_img).permute(2, 0, 1).float() / 255.0
         elif self.return_tensors == 'cuda':
-            return cuda_image(np_img)  # Will be copied via cudaMemcpy in _inference_thread
+            return cuda_image(np_img)  
         else:
             raise ValueError(f"Unsupported return_tensors: {self.return_tensors}")
 
@@ -107,7 +107,8 @@ class ImageSource:
         finally:
             # Keep the _busy True for 10 seconds after inference
             # The start() loop handles this timing
-            self._busy = False
+            #self._busy = False
+            pass
 
     def stop(self):
         """Stop sending images."""

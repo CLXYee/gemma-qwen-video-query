@@ -54,7 +54,6 @@ class Gemma3ImageDescriber():
             raise TypeError(f"Unsupported image type: {type(image)}")
     
     def describe_frame(self, image_path, prompt=None, max_new_tokens=16):
-        print("[Gemma] Describing frame......")
         if prompt is None:
             prompt = "Describe the image precisely. "
 
@@ -86,7 +85,6 @@ class Gemma3ImageDescriber():
         
         input_len = inputs["input_ids"].shape[-1]
         
-        print("[Gemma] Generating output")
         with torch.inference_mode():
             generation = self.model.generate(
                 **inputs,

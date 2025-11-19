@@ -3,19 +3,7 @@ import threading
 import time
 import os
 import csv
-import queue
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
-
-try:
-    import cv2
-    CV2_AVAILABLE = True
-except Exception:
-    cv2 = None
-    CV2_AVAILABLE = False
-
-from PIL import Image, ImageDraw, ImageFont
-import unicodedata
 
 def detect_jetson():
     try:
@@ -36,22 +24,27 @@ def detect_jetson():
             pass
     return False
 
-USE_JETSON = detect_jetson()
-if USE_JETSON:
-    import jetson_utils
-    from utils.image import cuda_image
+if detect_jetson():
+    from jetson_utils import cudaMemcpy
     from utils.utils import cudaToNumpy
+else:
+    import queue
+    import cv2
+    from PIL import Image, ImageDraw, ImageFont
 
+# -------------------------------------------------
+# Non-Jetson Device
+# -------------------------------------------------
 
-
-class LiveImageAgent:
-    def __init__(self, describer, image_source,
+class PCLiveImageAgent:
+    def __init__(self, describer, image_folder="./selected",
                  prompt=None, max_tokens=16,
                  save_output=False, output_file="prompt_history.csv",
-                 save_video=False, video_path="output.mp4", wait_time=10):
+                 save_video=False, video_path="output.mp4",
+                 wait_time=10):
 
         self.describer = describer
-        self.image_source = image_source
+        self.image_folder = image_folder
         self.prompt = prompt
         self.max_tokens = max_tokens
         self.save_output = save_output
@@ -91,65 +84,31 @@ class LiveImageAgent:
             self.video_writer = None
 
         # Set up Jetson or OpenCV display
-        if USE_JETSON:
-            from display import VideoOutput
-            self.video_output = VideoOutput(width=1280, height=720)
-            self.latest_cuda_frame = None 
-        else:
-            self.video_output = None
-
+        self.display = None
 
     # -------------------------------
     # Core image/frame processing
     # -------------------------------
-    def on_frame(self, frame, filename, max_inference_dim=512):
-        """Keep high-res for display; resized for inference"""
+    def on_frame(self, frame, filename):
+        """Handle new frame input and start inference thread."""
         if frame is None:
             return
 
         with self.frame_lock:
+            self.latest_frame = frame
             self.current_filename = filename
 
-            # High-res frame for display
-            if USE_JETSON:
-                self.latest_cuda_frame = frame
-                self.latest_frame = cudaToNumpy(frame)  # optional for display
-
-            else:
-                self.latest_frame = frame.copy()
-
-            # Resize CPU frame for inference
-            cpu_frame = cudaToNumpy(frame) if USE_JETSON else frame
-            h, w = cpu_frame.shape[:2]
-            scale = max_inference_dim / max(h, w)
-            if scale < 1.0:
-                new_w, new_h = int(w * scale), int(h * scale)
-                inference_frame = np.array(Image.fromarray(cpu_frame).resize((new_w, new_h), Image.LANCZOS))
-            else:
-                inference_frame = cpu_frame.copy()
-
-        # Start inference thread
         if self.inference_thread is None or not self.inference_thread.is_alive():
             self.inference_thread = threading.Thread(
                 target=self._run_inference,
-                args=(inference_frame, filename),
+                args=(frame, filename),
                 daemon=True
             )
             self.inference_thread.start()
 
-
-    def resize_for_jetson(np_frame, max_dim=512):
-        h, w = np_frame.shape[:2]
-        scale = max_dim / max(h, w)
-        if scale < 1.0:
-            new_w, new_h = int(w * scale), int(h * scale)
-            np_frame = np.array(Image.fromarray(np_frame).resize((new_w, new_h), Image.LANCZOS))
-        return np_frame
-
     def _run_inference(self, frame, filename):
         """Run inference on one frame (numpy array)"""
         try:
-            print("running inference")
             cur_time = time.time()
             description = self.describer.describe_frame(frame, self.prompt, self.max_tokens)
             elapsed = time.time() - cur_time
@@ -263,50 +222,40 @@ class LiveImageAgent:
 
 
     def display_loop(self):
+        """Continuously display frames with captions (like video)."""
         print("[Display] Starting display loop... (Press ESC to quit)")
 
         while self.running and not self.stop_event.is_set():
-
             with self.frame_lock:
+                frame = self.latest_frame.copy() if self.latest_frame is not None else None
                 caption = self.last_caption
-                frame_cuda = self.latest_cuda_frame if USE_JETSON else None
-                frame_cpu  = self.latest_frame if not USE_JETSON else None
 
-            if USE_JETSON:
-                if frame_cuda is None:
-                    time.sleep(0.05)
-                    continue
+            if frame is None:
+                time.sleep(0.1)
+                continue
 
-                try:
-                    frame_with_text = self.video_output.overlay_text(frame_cuda, caption)
-                    self.video_output.render(frame_with_text)
-                except Exception as e:
-                    print("[Jetson Display Error]", e)
-                    time.sleep(0.1)
-                    continue
+            annotated = self._overlay_text(frame, caption)
 
-            else:
-                if frame_cpu is None:
-                    time.sleep(0.05)
-                    continue
-
-                annotated_cpu = self._overlay_text(frame_cpu, caption)
-                cv2.imshow("Gemma3 Image Describer", annotated_cpu)
-                if cv2.waitKey(10) == 27:
-                    self.stop()
-                    break
-
-                if self.save_video and self.video_writer:
-                    self.video_writer.write(
-                        cv2.resize(annotated_cpu, (self.video_width, self.video_height))
-                    )
+            # Render frame
+            cv2.imshow("Gemma3 Image Describer", annotated)
+            key = cv2.waitKey(50)
+            if key == 27:
+                self.stop()
+                cv2.destroyAllWindows()
+                break
 
             if self.stop_event.is_set():
                 break
+            
+            if self.save_video and self.video_writer:
+                try:
+                    # Ensure frame matches the initialized video size
+                    frame_to_write = cv2.resize(annotated, (self.video_width, self.video_height))
+                    # Ensure correct color format (BGR)
+                    self.video_writer.write(frame_to_write)
+                except Exception as e:
+                    print(f"[VideoWriter Error] Failed to write frame: {e}")
 
-    # -------------------------------
-    # File I/O and logs
-    # -------------------------------
     def _save_history(self):
         """Save prompt history to CSV"""
         if not self.save_output or not self.prompt_history:
@@ -319,11 +268,8 @@ class LiveImageAgent:
             writer.writerows(self.prompt_history)
         self.prompt_history = []
 
-    # -------------------------------
-    # Start/stop lifecycle
-    # -------------------------------
     def start(self):
-        """Start looping through images and optionally render output."""
+        """Start looping through images as frames continuously"""
         if not self.images:
             print("[ImageAgent] No images found to display.")
             return
@@ -332,88 +278,53 @@ class LiveImageAgent:
         self.stop_event.clear()
         self.running = True
 
-        # -------------------------------------------------
-        # Setup video writer if saving video
-        # -------------------------------------------------
+        # Set up video writer if saving video
         if self.save_video and self.images:
-            try:
-                sample_img = Image.open(self.images[0]).convert("RGB")
-                self.video_width, self.video_height = sample_img.size
-
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                self.video_writer = cv2.VideoWriter(
-                    self.video_path,
-                    fourcc,
-                    max(60, self.fps),
-                    (self.video_width, self.video_height)
-                )
-                print(f"[VideoWriter] Initialized at {self.video_width}×{self.video_height}")
-            except Exception as e:
-                print(f"[VideoWriter] Failed to initialize: {e}")
-                self.video_writer = None
-
-        # -------------------------------------------------
-        # Start display thread (PC only; Jetson must avoid EGL threading)
-        # -------------------------------------------------
-        self.display_thread = None
-        if not USE_JETSON:
-            print("[Display] Starting display thread (PC mode)")
-            self.display_thread = threading.Thread(
-                target=self.display_loop,
-                daemon=True
+            sample_img = Image.open(self.images[0])
+            self.video_width, self.video_height = sample_img.size
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # try XVID if mp4v causes issues
+            self.video_writer = cv2.VideoWriter(
+                self.video_path,
+                fourcc,
+                max(60, self.fps),
+                (self.video_width, self.video_height)
             )
-            self.display_thread.start()
-        else:
-            print("[Display] Jetson mode → Display will run on main thread only")
 
-        # -------------------------------------------------
-        # Main image loop
-        # -------------------------------------------------
+        # Start display thread
+        self.display_thread = threading.Thread(target=self.display_loop, daemon=True)
+        self.display_thread.start()
+
         try:
+            # Continuous looping through images
             while self.running and not self.stop_event.is_set():
-
                 for filename in self.images:
                     if self.stop_event.is_set() or not self.running:
                         break
 
+
                     try:
-                        img = Image.open(filename).convert("RGB")
-                        np_frame = np.array(img)
+                        img = Image.open(filename).convert('RGB')
                         self.last_caption = "Loading..."
+                        np_frame = np.array(img)
                     except Exception as e:
                         print(f"[ImageAgent] Failed to load {filename}: {e}")
                         continue
 
-                    # GPU conversion only for Jetson mode
-                    if USE_JETSON:
-                        try:
-                            cuda_frame = cuda_image(np_frame)
-                            self.on_frame(cuda_frame, os.path.basename(filename))
-                        except Exception as e:
-                            print(f"[Jetson] CUDA conversion failed: {e}")
-                    else:
-                        self.on_frame(np_frame, os.path.basename(filename))
-
-                    # For Jetson: call display from main thread
-                    if USE_JETSON and self.video_output is not None:
-                        self.display_loop()
-
-                    time.sleep(self.wait_time)
+                    # Send frame to inference + display
+                    self.on_frame(np_frame, os.path.basename(filename))
+                    time.sleep(self.wait_time)  # wait 10 seconds before next image
 
         except KeyboardInterrupt:
             print("\n[KeyboardInterrupt] Gracefully stopping...")
             self.stop_event.set()
-            self.running = False
+            self.stop()
 
         finally:
-            # ---------------------------
-            # Cleanup
-            # ---------------------------
+            # Always release video writer and cleanup
             if self.catch_time:
                 print(f"[PROCESS COMPLETE] Average inference time: {np.mean(self.catch_time):.2f}s")
 
             self._save_history()
-
             if self.save_video and self.video_writer:
                 print(f"[Video] Saved to: {self.video_path}")
                 self.video_writer.release()
@@ -421,14 +332,9 @@ class LiveImageAgent:
 
             self.running = False
             print("[ImageAgent] Stopped.")
-
             if self.display_thread and self.display_thread.is_alive():
-                print("[Display] Joining display thread...")
                 self.display_thread.join(timeout=1)
-
-            if not USE_JETSON:
-                cv2.destroyAllWindows()
-
+            cv2.destroyAllWindows()
 
     def stop(self):
         """Stop all processes gracefully."""
@@ -450,10 +356,134 @@ class LiveImageAgent:
             self.video_writer = None
             print(f"[VideoWriter] Saved video to {self.video_path}")
 
-        if USE_JETSON:
-            self.latest_cuda_frame = None
-        else:
-            cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
 
         print("[ImageAgent] Stopped.")
 
+# -------------------------------------------------
+# Jetson Device
+# -------------------------------------------------
+
+class JetsonLiveImageAgent:
+    """
+    Live image agent for processing frames from an ImageSource.
+    Similar to LiveVideoAgent, but assumes ImageSource and VideoOutput
+    are created externally and passed in.
+    """
+    def __init__(self, describer, image_source, video_output, 
+                 prompt_history=None, prompt=None, max_tokens=16,
+                 save_output=True, output_file="prompt_history.csv",
+                 save_video=False, video_path="output.mp4", wait_time=10):
+        
+        self.describer = describer
+        self.image_source = image_source
+        self.video_output = video_output
+        self.prompt_history = prompt_history or []
+        self.prompt = prompt
+        self.max_tokens = max_tokens
+        self.save_output = save_output
+        self.output_file = output_file
+        self.save_video = save_video
+        self.video_path = video_path
+        self.wait_time = wait_time
+
+        self.latest_cuda_frame = None
+        self.last_caption = "Loading..."
+        self.frame_lock = threading.Lock()
+        self.inference_thread = None
+        self.running = False
+        self.catch_time = []
+        self.i = 1
+
+        # FFmpeg process placeholder if saving video
+        self.ffmpeg_process = None
+    
+    def on_frame(self, frame):
+        """Receive frame from ImageSource and trigger inference."""
+        if frame is None:
+            return
+
+        try:
+            with self.frame_lock:
+                self.latest_cuda_frame = frame
+
+            # Only allow one inference thread at a time
+            if self.inference_thread is None or not self.inference_thread.is_alive():
+                self.inference_thread = threading.Thread(
+                    target=self._run_inference, args=(frame,), daemon=True
+                )
+                self.inference_thread.start()
+        except Exception as e:
+            print(f"[LiveImageAgent] on_frame error: {e}")
+
+    def _run_inference(self, cuda_frame):
+        """Run description on frame asynchronously."""
+        try:
+            np_frame = cudaToNumpy(cuda_frame)
+            start_time = time.time()
+            description = self.describer.describe_frame(np_frame, self.prompt, self.max_tokens)
+            elapsed = time.time() - start_time
+            print(f"[{self.i}/100] Inference time: {elapsed:.2f}s")
+            self.catch_time.append(elapsed)
+            
+            self.i += 1
+            if len(self.catch_time) == 100:
+                print("[PROCESS STOPPING] Average inference time: {:.2f}s".format(np.mean(self.catch_time)))
+                self.stop()
+
+            self.last_caption = description
+            self.prompt_history.append({"timeframe": time.time(), "description": description})
+
+            # Save to CSV every 5 entries
+            if len(self.prompt_history) % 5 == 0 and self.save_output:
+                file_exists = os.path.isfile(self.output_file)
+                with open(self.output_file, mode='a', newline='', encoding='utf-8') as f:
+                    writer = csv.DictWriter(f, fieldnames=["timeframe", "description"])
+                    if not file_exists:
+                        writer.writeheader()
+                    for entry in self.prompt_history[-5:]:
+                        writer.writerow(entry)
+                self.prompt_history = []
+            
+            time.sleep(self.wait_time)
+            self.last_caption = None
+            self.image_source._busy = False
+
+        except Exception as e:
+            print(f"[LiveImageAgent] inference error: {e}")
+    
+    def display_loop(self):
+        """Render the latest frame with caption."""
+        while self.running:
+            frame_to_render = None
+            with self.frame_lock:
+                if self.latest_cuda_frame is not None:
+                    try:
+                        frame_to_render = cudaMemcpy(self.latest_cuda_frame)
+                        caption = self.last_caption or "Loading..."
+                    except Exception as e:
+                        print(f"[Display] Failed to copy frame: {e}")
+                        frame_to_render = None
+
+            if frame_to_render is not None:
+                try:
+                    annotated = self.video_output.overlay_text(frame_to_render, caption, position=(10, 30))
+                    self.video_output.render(annotated)
+                except Exception as e:
+                    print(f"[Display] Render error: {e}")
+            else:
+                time.sleep(0.1)
+
+            time.sleep(0.1)
+
+    def start(self):
+        """Start receiving frames from ImageSource."""
+        print("[LiveImageAgent] Starting...")
+        self.running = True
+        self.image_source.start(self.on_frame)
+
+    def stop(self):
+        """Stop all processes."""
+        print("[LiveImageAgent] Stopping...")
+        self.running = False
+        self.image_source.stop()

@@ -113,7 +113,7 @@ def main():
     parser.add_argument(
         "--image_source",
         type=str,
-        default="/home/ntu/Downloads/gemma3-test/selected",
+        default="./selected",
         help="Image directory source for image mode"
     )
     parser.add_argument(
@@ -189,23 +189,36 @@ def main():
                             save_video = args.save_video, video_path = args.video_path,
                             on_server = args.on_server
                             )
-    else:
+    elif args.mode == "image":
         print("[INFO] Image mode selected. Launching image agent...")
         if detect_jetson():
+            print("[INFO] Running on Jetson Device")
             from display import VideoOutput
             from image_source import ImageSource
-            from image_agent_jetson import LiveImageAgent
+            from image_agent import JetsonLiveImageAgent
             if args.prompt == None:
                 args.prompt = "Describe the image in detailed within 100 words. Include features of the landscape, activities, possible region, possible country, and quantitative features if applicable. Avoid using special characters."
             args.max_tokens = 256
             image_source = ImageSource(args.image_source)
             video_output = VideoOutput(width=args.width, height=args.height)
-            agent = LiveImageAgent(describer, image_source, video_output=video_output,
+            agent = JetsonLiveImageAgent(describer, image_source, video_output=video_output,
                                 prompt=args.prompt, max_tokens=args.max_tokens,
                                 save_output= args.save_output, output_file=args.output_file,
-                                save_video= args.save_video, video_path = args.video_path
+                                save_video= args.save_video, video_path = args.video_path,
+                                wait_time = args.wait_time
                                 )
-
+        else:
+            print("[INFO] Running on PC")
+            from image_agent import PCLiveImageAgent
+            if args.prompt == None:
+                args.prompt = "Describe the image in detailed within 100 words. Include features of the landscape, activities, possible region, possible country, and quantitative features if applicable. Avoid using special characters."
+            args.max_tokens = 256
+            agent = PCLiveImageAgent(describer, image_folder="./selected",
+                                prompt=args.prompt, max_tokens=args.max_tokens,
+                                save_output=args.save_output, output_file=args.output_file,
+                                save_video=args.save_video, video_path=args.video_path,
+                                wait_time=args.wait_time)
+            
     # -----------------------------
     # Run display or background mode
     # -----------------------------
@@ -223,7 +236,7 @@ def main():
         except KeyboardInterrupt:
             print("[INFO] Interrupted by user, stopping agent...")
             agent.stop()
-    else:
+    elif args.mode == "video":
         try:
             agent.start()
             if args.on_video and not args.headless:
@@ -241,6 +254,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# Stream on server 
-# save output to server args
