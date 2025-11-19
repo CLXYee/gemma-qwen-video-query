@@ -170,8 +170,8 @@ def main():
         print("[INFO] Video mode selected. Launching video agent...")
         from video_agent import LiveVideoAgent
         from camera import VideoSource
-        from camera import VideoOutput
-        #from display import VideoOutput
+        #from camera import VideoOutput
+        from display import VideoOutput
 
         video_source = VideoSource(args.source, video_input_framerate=args.frame_rate, return_tensors=args.return_tensors)
 
@@ -194,8 +194,8 @@ def main():
         print("[INFO] Image mode selected. Launching image agent...")
         if detect_jetson():
             print("[INFO] Running on Jetson Device")
-            #from display import VideoOutput
-            from camera import VideoOutput
+            from display import VideoOutput
+            #from camera import VideoOutput
             from image_source import ImageSource
             from image_agent import JetsonLiveImageAgent
             if args.prompt == None:
