@@ -208,7 +208,16 @@ class MatplotlibDisplay:
     def _draw_text_line(self, draw, text, x, y, font, text_color, background_color):
         """
         Draw one line of text with background rectangle.
+        Compatible with Pillow >= 10.
         """
-        text_size = draw.textsize(text, font=font)
-        draw.rectangle([x, y, x + text_size[0], y + text_size[1]], fill=background_color)
+        # Get bounding box of text
+        bbox = draw.textbbox((x, y), text, font=font)
+        left, top, right, bottom = bbox
+        width = right - left
+        height = bottom - top
+
+        # Draw background rectangle
+        draw.rectangle([x, y, x + width, y + height], fill=background_color)
+
+        # Draw text
         draw.text((x, y), text, font=font, fill=text_color)
