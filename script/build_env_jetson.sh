@@ -318,7 +318,7 @@ for pkg in "${PYTHON_PACKAGES[@]}"; do
 done
 pip install termcolor tabulate docker ffmpeg
 pip install accelerate
-sudo apt install -y ffmpeg
+sudo apt install -y ffmpeg mesa-utils
 
 pip cache purge || true
 
