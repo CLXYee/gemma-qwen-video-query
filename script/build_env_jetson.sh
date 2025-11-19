@@ -319,7 +319,7 @@ esac
 for pkg in "${PYTHON_PACKAGES[@]}"; do
     pip install "$pkg" || echo "[WARN] Failed to install $pkg — continuing..."
 done
-pip install termcolor tabulate docker ffmpeg
+pip install termcolor tabulate docker ffmpeg matplotlib
 pip install accelerate
 sudo apt install -y ffmpeg mesa-utils
 
