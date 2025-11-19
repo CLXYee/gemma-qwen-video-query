@@ -179,52 +179,60 @@ class MatplotlibDisplay:
     from PIL import ImageFont, ImageDraw
 
     def _overlay_text_numpy(self, img, text, position=(10,30),
-                            text_color=(255,255,255), background_color=(64,64,64),
-                            line_spacing_ratio=0.05, base_font_size=16, line_length_ratio=0.05):
+                        text_color=(255,255,255), background_color=(64,64,64),
+                        base_font_size=16, margin_ratio=0.02):
         """
-        Draw word-wrapped text on a numpy image using PIL, with dynamic font size.
+        Draw word-wrapped text on a numpy image using PIL, with dynamic font size and automatic line breaks.
         
         Args:
             img: HWC, uint8 NumPy array
             position: (x, y) starting point
-            line_spacing_ratio: fraction of image height to use as line spacing
             base_font_size: font size for reference height
-            line_length_ratio: fraction of image width to use as max line length
+            margin_ratio: fraction of image width used as left/right margin
         """
         pil_img = Image.fromarray(img)
         draw = ImageDraw.Draw(pil_img)
 
         h, w = img.shape[:2]
 
-        # Dynamic font size based on image height
-        font_size = max(8, int(base_font_size * h / 720))
+        # Dynamic font size
+        font_size = max(8, int(base_font_size * h / 800))
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
         except Exception:
             font = ImageFont.load_default()
 
-        # Dynamic line spacing
-        line_spacing = int(h * line_spacing_ratio)
+        # Line spacing proportional to font size
+        line_spacing = int(font_size*1.1)
 
-        # Max characters per line
-        line_length = max(10, int(w * line_length_ratio))
+        # Maximum line width in pixels
+        margin = int(w * margin_ratio)
+        max_line_width = w - 2 * margin
 
-        # Split text into words
+        x, y = position
         words = text.split()
         current_line = ""
-        y = position[1]
 
-        for n, word in enumerate(words):
-            if len(current_line + word) <= line_length:
-                current_line += word + " "
-                if n == len(words) - 1:
-                    self._draw_text_line(draw, current_line.strip(), position[0], y, font, text_color, background_color)
+        for word in words:
+            test_line = current_line + (word + " ")
+            # compute pixel width
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            line_width = bbox[2] - bbox[0]
+
+            if line_width <= max_line_width:
+                current_line = test_line
             else:
-                self._draw_text_line(draw, current_line.strip(), position[0], y, font, text_color, background_color)
-                current_line = word + " "
+                # draw current line
+                self._draw_text_line(draw, current_line.strip(), x, y, font, text_color, background_color)
                 y += line_spacing
+                current_line = word + " "
+
+        # draw last line
+        if current_line:
+            self._draw_text_line(draw, current_line.strip(), x, y, font, text_color, background_color)
 
         return np.array(pil_img)
+
 
     def _draw_text_line(self, draw, text, x, y, font, text_color, background_color):
         """
