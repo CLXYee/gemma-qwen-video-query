@@ -11,6 +11,9 @@ ENV_NAME="video_query"
 JETSON_PYPI_BASE="https://pypi.jetson-ai-lab.io"
 DRY_RUN=false
 
+export DISPLAY=:0
+export XAUTHORITY=/run/user/1000/gdm/Xauthority
+
 # =======================================================
 # Parse arguments
 # =======================================================

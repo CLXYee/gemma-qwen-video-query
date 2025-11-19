@@ -229,15 +229,8 @@ def main():
             agent.start()
             # If Jetson → manually loop display because no thread exists
             if detect_jetson():
-                flag=0
                 while agent.running:
-                    try:
-                        agent.display_loop()
-                    except:
-                        if flag==0:
-                            print("[WARNING] BadAlloc (insufficient resources for operation). Closing display loop")
-                            flag=1
-                        
+                    agent.display_loop()
             else:
                 # PC → display thread already running
                 agent.display_thread.join()

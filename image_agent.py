@@ -418,8 +418,10 @@ class JetsonLiveImageAgent:
 
     def _run_inference(self, cuda_frame):
         """Run description on frame asynchronously."""
+
         try:
             np_frame = cudaToNumpy(cuda_frame)
+            print("[INFO] Running inference")
             start_time = time.time()
             description = self.describer.describe_frame(np_frame, self.prompt, self.max_tokens)
             elapsed = time.time() - start_time
@@ -454,6 +456,7 @@ class JetsonLiveImageAgent:
     
     def display_loop(self):
         """Render the latest frame with caption."""
+        print("[Display] Starting display loop... (Press ESC to quit)")
         while self.running:
             frame_to_render = None
             with self.frame_lock:
