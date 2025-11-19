@@ -2,7 +2,7 @@ import numpy as np
 import pygame
 from jetson_utils import cudaDeviceSynchronize
 from utils.utils import cudaToNumpy
-
+import matplotlib.pyplot as plt
 
 class PyDisplay:
     def __init__(self, width=1280, height=720):
@@ -115,3 +115,62 @@ class PyDisplay:
 
         pygame.display.flip()
         self.clock.tick(60)
+
+class MatplotlibDisplay:
+    """
+    Display images safely using matplotlib instead of pygame.
+    Designed for SSH sessions or low GPU memory environments.
+    """
+    def __init__(self, width=1280, height=720, max_display_dim=720):
+        self.width = width
+        self.height = height
+        self.max_display_dim = max_display_dim
+
+        # Matplotlib setup
+        self.fig, self.ax = plt.subplots()
+        plt.ion()  # interactive mode
+        self.im_obj = None
+        self.ax.axis('off')
+        self.fig.show()
+        self.fig.canvas.draw()
+
+    def render(self, cuda_img):
+        """
+        Render a CUDA image using matplotlib (like pygame.render).
+        """
+        img = cudaToNumpy(cuda_img)
+        cudaDeviceSynchronize()
+
+        # Convert to 8-bit RGB
+        if img.dtype != np.uint8:
+            img = (img * 255).astype(np.uint8)
+
+        # Ensure 3 channels
+        if img.ndim == 2:
+            img = np.stack([img]*3, axis=-1)
+        elif img.shape[2] > 3:
+            img = img[:, :, :3]
+
+        # Downscale large images
+        h, w = img.shape[:2]
+        scale = min(self.max_display_dim / h, self.max_display_dim / w, 1.0)
+        if scale < 1.0:
+            new_h, new_w = int(h * scale), int(w * scale)
+            img = img[::h//new_h, ::w//new_w, :]
+
+        # Display image
+        if self.im_obj is None:
+            self.im_obj = self.ax.imshow(img)
+        else:
+            self.im_obj.set_data(img)
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+    def soft_render(self, cuda_img, max_display_dim=None):
+        """
+        Alias for render, to match PyDisplay.soft_render interface.
+        """
+        if max_display_dim:
+            self.max_display_dim = max_display_dim
+        self.render(cuda_img)

@@ -3,7 +3,7 @@ import logging
 import torch
 from jetson_utils import cudaFont
 from utils.utils import cudaToNumpy
-from utils.vision import PyDisplay
+from utils.vision import PyDisplay, MatplotlibDisplay
 from utils.image import wrap_text
 
 class VideoSource:
@@ -108,6 +108,49 @@ class VideoOutput:
         except Exception as e:
             print(f"[VideoOutput] Text overlay error: {e}")
             return frame
+        
+class VideoOutputMatplotlib:
+    """
+    Display images safely using MatplotlibDisplay backend.
+    Matches VideoOutput interface.
+    """
+    def __init__(self, width=1280, height=720):
+        self.display = MatplotlibDisplay(width=width, height=height)
+        self.width = width
+        self.height = height
+        self.font = cudaFont()
+
+    def render(self, cuda_img):
+        """
+        Render a single frame safely.
+        """
+        try:
+            self.display.render(cuda_img)
+        except Exception as e:
+            print("[VideoOutputMatplotlib] Render failed, using soft_render fallback:", e)
+            self.display.soft_render(cuda_img)
+
+    def overlay_text(self, frame, text, position=(10, 30)):
+        """
+        Draw text on CUDA frame using jetson-utils' cudaFont.
+        Returns modified frame.
+        """
+        # Normalize text
+        text = (text.replace("’", "'").replace("‘", "'")
+                    .replace("“", '"').replace("”", '"')
+                    .replace("–", "-").replace("—", "-"))
+        text = ''.join(ch for ch in text if ord(ch) < 128)
+
+        try:
+            x, y = position
+            color = self.font.White
+            background = self.font.Gray40
+            wrap_text(self.font, frame, text=text, x=x, y=y, color=color, background=background)
+        except Exception as e:
+            print(f"[VideoOutputMatplotlib] Text overlay error: {e}")
+
+        return frame
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
