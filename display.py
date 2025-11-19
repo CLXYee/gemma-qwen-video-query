@@ -81,7 +81,10 @@ class VideoOutput:
 
     def render(self, cuda_img):
         """Render a single frame safely."""
-        self.display.render(cuda_img)
+        try:
+            self.display.render(cuda_img)
+        except Exception:
+            self.display.soft_render(cuda_img)
 
     def overlay_text(self, frame, text, position=(10, 30)):
         """
