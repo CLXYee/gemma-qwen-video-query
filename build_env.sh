@@ -2,7 +2,11 @@
 
 # Function to detect if the device is Jetson
 is_jetson() {
-    if grep -q "NVIDIA Jetson" /proc/device-tree/model 2>/dev/null; then
+    if [ -f /proc/device-tree/model ] && grep -q "NVIDIA Jetson" /proc/device-tree/model 2>/dev/null; then
+        return 0  # Jetson
+    elif uname -a | grep -qi "tegra"; then
+        return 0  # Jetson
+    elif [ -f /etc/nv_tegra_release ]; then
         return 0  # Jetson
     else
         return 1  # Not Jetson
