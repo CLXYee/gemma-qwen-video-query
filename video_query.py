@@ -213,7 +213,7 @@ def main():
             if args.prompt == None:
                 args.prompt = "Describe the image in detailed within 100 words. Include features of the landscape, activities, possible region, possible country, and quantitative features if applicable. Avoid using special characters."
             args.max_tokens = 256
-            agent = PCLiveImageAgent(describer, image_folder="./selected",
+            agent = PCLiveImageAgent(describer, image_folder=args.image_source,
                                 prompt=args.prompt, max_tokens=args.max_tokens,
                                 save_output=args.save_output, output_file=args.output_file,
                                 save_video=args.save_video, video_path=args.video_path,
