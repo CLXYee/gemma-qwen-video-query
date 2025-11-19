@@ -183,12 +183,6 @@ class MatplotlibDisplay:
                         base_font_size=16, margin_ratio=0.02):
         """
         Draw word-wrapped text on a numpy image using PIL, with dynamic font size and automatic line breaks.
-        
-        Args:
-            img: HWC, uint8 NumPy array
-            position: (x, y) starting point
-            base_font_size: font size for reference height
-            margin_ratio: fraction of image width used as left/right margin
         """
         pil_img = Image.fromarray(img)
         draw = ImageDraw.Draw(pil_img)
@@ -198,7 +192,7 @@ class MatplotlibDisplay:
         # Dynamic font size
         font_size = max(8, int(base_font_size * h / 800))
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
         except Exception:
             font = ImageFont.load_default()
 
