@@ -123,7 +123,7 @@ class VideoOutput:
     """
     Display frames and overlay text using jetson-utils.
     """
-    def __init__(self, output_source="display://0"):
+    def __init__(self, output_source="display://0", width=None, height=None):
         """
         Args:
             output_source: Output display or stream (e.g., 'display://0', 'file://output.mp4')
