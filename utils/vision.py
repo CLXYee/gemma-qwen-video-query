@@ -176,27 +176,48 @@ class MatplotlibDisplay:
             self.max_display_dim = max_display_dim
         self.render(cuda_img)
 
-    def _overlay_text_numpy(self, img, text, position=(10,30), text_color=(255,255,255), background_color=(64,64,64), line_spacing=20, line_length=None):
+    from PIL import ImageFont, ImageDraw
+
+    def _overlay_text_numpy(self, img, text, position=(10,30),
+                            text_color=(255,255,255), background_color=(64,64,64),
+                            line_spacing_ratio=0.05, base_font_size=16, line_length_ratio=0.05):
         """
-        Draw word-wrapped text on a numpy image using PIL.
+        Draw word-wrapped text on a numpy image using PIL, with dynamic font size.
+        
+        Args:
+            img: HWC, uint8 NumPy array
+            position: (x, y) starting point
+            line_spacing_ratio: fraction of image height to use as line spacing
+            base_font_size: font size for reference height
+            line_length_ratio: fraction of image width to use as max line length
         """
         pil_img = Image.fromarray(img)
         draw = ImageDraw.Draw(pil_img)
-        font = ImageFont.load_default()  # basic default font
 
-        # compute line length if not provided
-        if line_length is None:
-            line_length = img.shape[1] // 16
+        h, w = img.shape[:2]
+
+        # Dynamic font size based on image height
+        font_size = max(8, int(base_font_size * h / 720))
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+        except Exception:
+            font = ImageFont.load_default()
+
+        # Dynamic line spacing
+        line_spacing = int(h * line_spacing_ratio)
+
+        # Max characters per line
+        line_length = max(10, int(w * line_length_ratio))
 
         # Split text into words
         words = text.split()
         current_line = ""
         y = position[1]
+
         for n, word in enumerate(words):
             if len(current_line + word) <= line_length:
                 current_line += word + " "
                 if n == len(words) - 1:
-                    # last word
                     self._draw_text_line(draw, current_line.strip(), position[0], y, font, text_color, background_color)
             else:
                 self._draw_text_line(draw, current_line.strip(), position[0], y, font, text_color, background_color)
