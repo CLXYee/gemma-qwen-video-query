@@ -82,7 +82,7 @@ class VideoOutput:
     def render(self, cuda_img):
         """Render a single frame safely."""
         try:
-            self.display.render(cuda_img)
+            self.display.soft_render(cuda_img)
         except Exception:
             print("[WARNING] Decreasing resolution")
             self.display.soft_render(cuda_img)
