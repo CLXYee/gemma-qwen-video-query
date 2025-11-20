@@ -15,13 +15,13 @@ class Gemma3ImageDescriber():
 
         if quantization_config:
             try:
-                print("[INFO] Using 8 bit quantization model")
+                print("[INFO] Using quantized model")
                 from transformers import BitsAndBytesConfig
                 self.quantization_config = BitsAndBytesConfig(
-                    load_in_8bit = True,
-                    bnb_8bit_quant_type="nf8",
-                    bnb_8bit_use_double_quant = True,
-                    bnb_8bit_compute_dtype=torch.bfloat16
+                    load_in_4bit = True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_use_double_quant = True,
+                    bnb_4bit_compute_dtype=torch.bfloat16
                 )
             except:
                 print("[WARNING] Quantization not available! Please ensure that bitsandbytes is installed and current device have CUDA >= 11.8")
@@ -145,13 +145,13 @@ class QwenImageDescriber():
 
         if quantization_config:
             try:
-                print("[INFO] Using 8 bit quantization model")
+                print("[INFO] Using quantized model")
                 from transformers import BitsAndBytesConfig
                 self.quantization_config = BitsAndBytesConfig(
-                    load_in_8bit = True,
-                    bnb_8bit_quant_type="nf8",
-                    bnb_8bit_use_double_quant = True,
-                    bnb_8bit_compute_dtype=torch.bfloat16
+                    load_in_4bit = True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_use_double_quant = True,
+                    bnb_4bit_compute_dtype=torch.bfloat16
                 )
             except:
                 print("[WARNING] Quantization not available! Please ensure that bitsandbytes is installed and current device have CUDA >= 11.8")

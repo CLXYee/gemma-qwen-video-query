@@ -113,6 +113,7 @@ PYTHON_PACKAGES=(
     "ffmpeg"
     "opencv-python"
     "wrapt"
+    "bitsandbytes"
 )
 
 for pkg in "${PYTHON_PACKAGES[@]}"; do

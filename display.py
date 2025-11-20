@@ -139,7 +139,7 @@ class VideoOutputMatplotlib:
         text_color = (255, 255, 255)
         background_color = (64, 64, 64)
         frame = self.display._overlay_text_numpy(cudaToNumpy(frame), text, position, text_color, background_color)
-        return cuda_image(frame)
+        return frame
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

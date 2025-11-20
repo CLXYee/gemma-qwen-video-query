@@ -73,7 +73,7 @@ def main():
     parser.add_argument(
         "--output_file",
         type=str,
-        default="prompt_history.csv",
+        default="output/prompt_history.csv",
         help="Save VLM output as a csv"
     )
     parser.add_argument(
@@ -89,7 +89,7 @@ def main():
     parser.add_argument(
         "--video_path", 
         type=str,
-        default="output.mp4",
+        default="output/output.mp4",
         help="Path to save video with VLM output"
     )
     parser.add_argument(

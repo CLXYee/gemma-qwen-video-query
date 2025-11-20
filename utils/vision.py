@@ -128,7 +128,15 @@ class MatplotlibDisplay:
         self.max_display_dim = max_display_dim
 
         # Matplotlib setup
-        self.fig, self.ax = plt.subplots()
+        screen_w, screen_h = 1920,1080
+        dpi = 100
+        self.fig, self.ax = plt.subplots(figsize=(screen_w/dpi, screen_h/dpi), dpi=dpi)
+
+        manager = plt.get_current_fig_manager()
+        #try:
+        #    manager.full_screen_toggle()
+        #except Exception:
+        #    pass
         plt.ion()  # interactive mode
         self.im_obj = None
         self.ax.axis('off')
@@ -139,7 +147,8 @@ class MatplotlibDisplay:
         """
         Render a CUDA image using matplotlib (like pygame.render).
         """
-        img = cudaToNumpy(cuda_img)
+        #img = cudaToNumpy(cuda_img)
+        img = cuda_img
         cudaDeviceSynchronize()
 
         # Convert to 8-bit RGB
@@ -176,13 +185,12 @@ class MatplotlibDisplay:
             self.max_display_dim = max_display_dim
         self.render(cuda_img)
 
-    from PIL import ImageFont, ImageDraw
-
     def _overlay_text_numpy(self, img, text, position=(10,30),
                         text_color=(255,255,255), background_color=(64,64,64),
-                        base_font_size=16, margin_ratio=0.02):
+                        base_font_size=13, margin_ratio=0.02):
         """
-        Draw word-wrapped text on a numpy image using PIL, with dynamic font size and automatic line breaks.
+        Draw word-wrapped text on a numpy image using PIL, with dynamic font size and
+        a single rectangle background for all lines.
         """
         pil_img = Image.fromarray(img)
         draw = ImageDraw.Draw(pil_img)
@@ -190,14 +198,14 @@ class MatplotlibDisplay:
         h, w = img.shape[:2]
 
         # Dynamic font size
-        font_size = max(8, int(base_font_size * h / 800))
+        font_size = max(8, int(base_font_size * h / 720))
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size)
         except Exception:
             font = ImageFont.load_default()
 
         # Line spacing proportional to font size
-        line_spacing = int(font_size*1.1)
+        line_spacing = int(font_size * 0.2)
 
         # Maximum line width in pixels
         margin = int(w * margin_ratio)
@@ -205,28 +213,45 @@ class MatplotlibDisplay:
 
         x, y = position
         words = text.split()
+        lines = []
         current_line = ""
 
+        # Wrap text into lines
         for word in words:
             test_line = current_line + (word + " ")
-            # compute pixel width
             bbox = draw.textbbox((0, 0), test_line, font=font)
             line_width = bbox[2] - bbox[0]
-
             if line_width <= max_line_width:
                 current_line = test_line
             else:
-                # draw current line
-                self._draw_text_line(draw, current_line.strip(), x, y, font, text_color, background_color)
-                y += line_spacing
+                lines.append(current_line.strip())
                 current_line = word + " "
-
-        # draw last line
         if current_line:
-            self._draw_text_line(draw, current_line.strip(), x, y, font, text_color, background_color)
+            lines.append(current_line.strip())
+
+        # Compute total rectangle height and width
+        max_line_width_px = 0
+        total_height = 0
+        for line in lines:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            line_width = bbox[2] - bbox[0]
+            line_height = bbox[3] - bbox[1]
+            max_line_width_px = max(max_line_width_px, line_width)
+            total_height += line_height + line_spacing
+        total_height -= line_spacing  # no extra spacing after last line
+
+        # Draw single background rectangle
+        draw.rectangle([x - 1, y - 1, x + max_line_width_px + 3, y + total_height + 3], fill=background_color)
+
+        # Draw text line by line
+        y_offset = y
+        for line in lines:
+            draw.text((x, y_offset), line, font=font, fill=text_color)
+            bbox = draw.textbbox((0, 0), line, font=font)
+            line_height = bbox[3] - bbox[1]
+            y_offset += line_height + line_spacing
 
         return np.array(pil_img)
-
 
     def _draw_text_line(self, draw, text, x, y, font, text_color, background_color):
         """
