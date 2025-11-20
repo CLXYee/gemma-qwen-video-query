@@ -145,7 +145,7 @@ else
     else
         # --- NOTE: Use official PyTorch CUDA wheels for JetPack 6+
         case $CUDA_VERSION in
-            12.*) pip install https://pypi.jetson-ai-lab.io/jp6/cu126/+f/62a/1beee9f2f1470/torch-2.8.0-cp310-cp310-linux_aarch64.whl#sha256=62a1beee9f2f147076a974d2942c90060c12771c94740830327cae705b2595fc https://pypi.jetson-ai-lab.io/jp6/cu126/+f/907/c4c1933789645/torchvision-0.23.0-cp310-cp310-linux_aarch64.whl#sha256=907c4c1933789645ebb20dd9181d40f8647978e6bd30086ae7b01febb937d2d1 https://pypi.jetson-ai-lab.io/jp6/cu126/+f/907/c4c1933789645/torchvision-0.23.0-cp310-cp310-linux_aarch64.whl#sha256=907c4c1933789645ebb20dd9181d40f8647978e6bd30086ae7b01febb937d2d1;;            
+            12.*) pip install https://pypi.jetson-ai-lab.io/jp6/cu126/+f/62a/1beee9f2f1470/torch-2.8.0-cp310-cp310-linux_aarch64.whl#sha256=62a1beee9f2f147076a974d2942c90060c12771c94740830327cae705b2595fc https://pypi.jetson-ai-lab.io/jp6/cu126/+f/907/c4c1933789645/torchvision-0.23.0-cp310-cp310-linux_aarch64.whl#sha256=907c4c1933789645ebb20dd9181d40f8647978e6bd30086ae7b01febb937d2d1 https://pypi.jetson-ai-lab.io/jp6/cu126/+f/907/c4c1933789645/torchvision-0.23.0-cp310-cp310-linux_aarch64.whl#sha256=907c4c1933789645ebb20dd9181d40f8647978e6bd30086ae7b01febb937d2d1 https://pypi.jetson-ai-lab.io/jp6/cu126/+f/014/eff8ba676c7a3/bitsandbytes-0.47.0.dev0-cp310-cp310-linux_aarch64.whl#sha256=014eff8ba676c7a3830b9430744115af50790d2f7ff1b57f155a8839bcc39104;;            
             11.*) pip install ../utils/jp5_wheels/*.whl;;
             cpu)  pip install torch torchvision torchaudio ;;
             *)    pip install torch torchvision torchaudio ;;
@@ -319,7 +319,7 @@ esac
 for pkg in "${PYTHON_PACKAGES[@]}"; do
     pip install "$pkg" || echo "[WARN] Failed to install $pkg — continuing..."
 done
-pip install termcolor tabulate docker ffmpeg matplotlib bitsandbytes
+pip install termcolor tabulate docker ffmpeg matplotlib
 pip install accelerate
 sudo apt install -y ffmpeg mesa-utils
 
