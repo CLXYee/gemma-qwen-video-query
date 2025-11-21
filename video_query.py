@@ -142,6 +142,12 @@ def main():
         default=10,
         help="Wait time of displaying each image in image mode (in seconds)"
     )
+    parser.add_argument(
+        "--plot",
+        type=str,
+        default="plt",
+        help="Plot method (plt or pygame)"
+    )
 
 
     args = parser.parse_args()
@@ -194,7 +200,10 @@ def main():
         print("[INFO] Image mode selected. Launching image agent...")
         if detect_jetson():
             print("[INFO] Running on Jetson Device")
-            from display import VideoOutputMatplotlib as VideoOutput
+            if args.plot == "plt":
+                from display import VideoOutputMatplotlib as VideoOutput
+            else:
+                from display import VideoOutput
             #from camera import VideoOutput
             from image_source import ImageSource
             from image_agent import JetsonLiveImageAgent
