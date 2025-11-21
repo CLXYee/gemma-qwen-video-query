@@ -15,7 +15,7 @@ class Gemma3ImageDescriber():
 
         if quantization_config:
             try:
-                print("[INFO] Using quantized model")
+                print("[INFO] Using 4 bit quantized model")
                 from transformers import BitsAndBytesConfig
                 self.quantization_config = BitsAndBytesConfig(
                     load_in_4bit = True,
@@ -145,7 +145,7 @@ class QwenImageDescriber():
 
         if quantization_config:
             try:
-                print("[INFO] Using quantized model")
+                print("[INFO] Using 4 bit quantized model")
                 from transformers import BitsAndBytesConfig
                 self.quantization_config = BitsAndBytesConfig(
                     load_in_4bit = True,

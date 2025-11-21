@@ -132,6 +132,9 @@ class MatplotlibDisplay:
         dpi = 100
         self.fig, self.ax = plt.subplots(figsize=(screen_w/dpi, screen_h/dpi), dpi=dpi)
 
+        self.ax.axis('off')
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
         manager = plt.get_current_fig_manager()
         #try:
         #    manager.full_screen_toggle()
@@ -139,7 +142,6 @@ class MatplotlibDisplay:
         #    pass
         plt.ion()  # interactive mode
         self.im_obj = None
-        self.ax.axis('off')
         self.fig.show()
         self.fig.canvas.draw()
 
@@ -170,7 +172,7 @@ class MatplotlibDisplay:
 
         # Display image
         if self.im_obj is None:
-            self.im_obj = self.ax.imshow(img, interpolation='nearest')
+            self.im_obj = self.ax.imshow(img, interpolation='nearest', aspect='auto')
         else:
             self.im_obj.set_data(img)
 

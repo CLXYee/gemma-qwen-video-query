@@ -113,13 +113,12 @@ def main():
     parser.add_argument(
         "--image_source",
         type=str,
-        default="./selected",
+        default="./selected/Global",
         help="Image directory source for image mode"
     )
     parser.add_argument(
         "--prompt",
         type=str,
-        #default="Describe the image precisely.",
         default=None,
         help="Define prompt to pass to the VLM"
     )
@@ -181,6 +180,8 @@ def main():
 
         video_source = VideoSource(args.source, video_input_framerate=args.frame_rate, return_tensors=args.return_tensors)
 
+        if args.prompt == None:
+            args.prompt = "Describe the image precisely"
         if args.save_video and not args.on_video:
             print("[INFO] --save_video enabled but --on_video not detected. Automatically enabling --on_video for frame fetching and rendering")
             args.on_video = True
