@@ -135,6 +135,8 @@ class MatplotlibDisplay:
         self.ax.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
+        self.ax.set_aspect('equal', adjustable='box')
+
         manager = plt.get_current_fig_manager()
         #try:
         #    manager.full_screen_toggle()
@@ -147,7 +149,7 @@ class MatplotlibDisplay:
 
     def render(self, cuda_img):
         """
-        Render a CUDA image using matplotlib (like pygame.render).
+        Render a CUDA image using matplotlib.
         """
         #img = cudaToNumpy(cuda_img)
         img = cuda_img
@@ -172,7 +174,9 @@ class MatplotlibDisplay:
 
         # Display image
         if self.im_obj is None:
-            self.im_obj = self.ax.imshow(img, interpolation='nearest', aspect='auto')
+            self.im_obj = self.ax.imshow(img, interpolation='nearest')
+            self.ax.set_aspect('equal', adjustable='box')
+
         else:
             self.im_obj.set_data(img)
 
