@@ -4,7 +4,7 @@ import torch
 from jetson_utils import cudaFont
 from utils.utils import cudaToNumpy
 from utils.vision import PyDisplay, MatplotlibDisplay
-from utils.image import wrap_text, cuda_image
+from utils.image import wrap_text
 
 class VideoSource:
     """

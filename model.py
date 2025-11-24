@@ -90,7 +90,7 @@ class Gemma3ImageDescriber():
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 do_sample=True,
-                temperature=0.7 # For more diverse outputs
+                temperature=0.7 
             )
             generation = generation[0][input_len:]
         

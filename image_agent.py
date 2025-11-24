@@ -80,7 +80,7 @@ class PCLiveImageAgent:
         self.index = 0
 
         if self.save_video:
-            self.fps = 60  # default fps
+            self.fps = 60 
             self.video_writer = None
 
         # Set up Jetson or OpenCV display
@@ -185,8 +185,6 @@ class PCLiveImageAgent:
         # Compute background box size
         y0 = 40
 
-        # Height of 1 line
-        # font.getbbox returns (x0, y0, x1, y1)
         bboxA = font.getbbox("A")
         line_height = (bboxA[3] - bboxA[1]) + 6
 

@@ -7,7 +7,6 @@ from PIL import Image
 import numpy as np
 from jetson_utils import cudaMemcpy
 from utils.image import cuda_image
-from utils.utils import cudaToNumpy  # Assuming you have this utility
 
 class ImageSource:
     """
@@ -15,12 +14,7 @@ class ImageSource:
     Continuously passes frames (images) to a callback in the same way as VideoSource.
     """
     def __init__(self, folder_path, return_tensors='cuda', loop=True):
-        """
-        Args:
-            folder_path: Path to folder containing images.
-            return_tensors: 'np' | 'pt' | 'cuda' — format for returned frames.
-            loop: Whether to loop back to the first image after finishing.
-        """
+        
         self.folder_path = folder_path
         self.return_tensors = return_tensors
         self.loop = loop

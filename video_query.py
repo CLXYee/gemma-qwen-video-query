@@ -175,7 +175,6 @@ def main():
         print("[INFO] Video mode selected. Launching video agent...")
         from video_agent import LiveVideoAgent
         from camera import VideoSource
-        #from camera import VideoOutput
         from display import VideoOutput
 
         video_source = VideoSource(args.source, video_input_framerate=args.frame_rate, return_tensors=args.return_tensors)
@@ -205,7 +204,6 @@ def main():
                 from display import VideoOutputMatplotlib as VideoOutput
             else:
                 from display import VideoOutput
-            #from camera import VideoOutput
             from image_source import ImageSource
             from image_agent import JetsonLiveImageAgent
             if args.prompt == None:
@@ -237,12 +235,10 @@ def main():
     if args.mode == "image":
         try:
             agent.start()
-            # If Jetson → manually loop display because no thread exists
             if detect_jetson():
                 while agent.running:
                     agent.display_loop()
             else:
-                # PC → display thread already running
                 agent.display_thread.join()
 
         except KeyboardInterrupt:

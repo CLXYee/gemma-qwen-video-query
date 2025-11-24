@@ -42,7 +42,7 @@ class VideoSource:
 
         self.source = source
         self.return_tensors = return_tensors
-        self.cap = videoSource(source, options=options)  # automatically detects camera/stream type
+        self.cap = videoSource(source, options=options)  
         self.running = False
         self.thread = None
         self._busy = False  # skip frames while inference running

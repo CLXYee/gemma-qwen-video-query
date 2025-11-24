@@ -15,8 +15,7 @@ class PyDisplay:
         self.width = width
         self.height = height
 
-        # IMPORTANT: no hardware surfaces, no double buffer, no fullscreen
-        flags = pygame.RESIZABLE    # safe for Jetson
+        flags = pygame.RESIZABLE   
 
         self.screen = pygame.display.set_mode(
             (self.width, self.height),
@@ -41,13 +40,12 @@ class PyDisplay:
         if surf_w == 0 or surf_h == 0:
             return
 
-        # Scale to fit (contain) -- do not upscale beyond original size
+        # Scale to fit
         scale = min(self.width / surf_w, self.height / surf_h, 1.0)
         new_w, new_h = int(surf_w * scale), int(surf_h * scale)
 
         if (new_w, new_h) != (surf_w, surf_h):
             try:
-                # higher quality scaling when available
                 surf = pygame.transform.smoothscale(surf, (new_w, new_h))
             except Exception:
                 surf = pygame.transform.scale(surf, (new_w, new_h))
@@ -139,16 +137,13 @@ class MatplotlibDisplay:
 
         manager = plt.get_current_fig_manager()
         manager.set_window_title('')
-        plt.rcParams['toolbar'] = 'none'    # remove bottom toolbar
+        plt.rcParams['toolbar'] = 'none'   
         try:
-            manager.full_screen_toggle()    # optional fullscreen
+            manager.full_screen_toggle()    
         except Exception:
             pass
 
-        # ESC handler
-        #self.fig.canvas.mpl_connect("key_press_event", self._on_key)
-
-        plt.ion()  # interactive mode
+        plt.ion()
         self.im_obj = None
         self.fig.show()
         self.fig.canvas.draw()
@@ -157,7 +152,6 @@ class MatplotlibDisplay:
         """
         Render a CUDA image using matplotlib.
         """
-        #img = cudaToNumpy(cuda_img)
         img = cuda_img
         cudaDeviceSynchronize()
 
