@@ -127,7 +127,7 @@ class MatplotlibDisplay:
         self.height = height
         self.max_display_dim = max_display_dim
 
-        # Matplotlib setup
+        # Matplotlib setup 
         screen_w, screen_h = 1920,1080
         dpi = 100
         self.fig, self.ax = plt.subplots(figsize=(screen_w/dpi, screen_h/dpi), dpi=dpi)
@@ -139,7 +139,14 @@ class MatplotlibDisplay:
 
         manager = plt.get_current_fig_manager()
         manager.set_window_title('')
-        manager.window.overrideredirect(True)
+        plt.rcParams['toolbar'] = 'none'    # remove bottom toolbar
+        try:
+            manager.full_screen_toggle()    # optional fullscreen
+        except Exception:
+            pass
+
+        # ESC handler
+        #self.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
         plt.ion()  # interactive mode
         self.im_obj = None
