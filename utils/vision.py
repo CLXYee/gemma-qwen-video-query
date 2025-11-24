@@ -138,10 +138,9 @@ class MatplotlibDisplay:
         self.ax.set_aspect('equal', adjustable='box')
 
         manager = plt.get_current_fig_manager()
-        #try:
-        #    manager.full_screen_toggle()
-        #except Exception:
-        #    pass
+        manager.set_window_title('')
+        manager.window.overrideredirect(True)
+
         plt.ion()  # interactive mode
         self.im_obj = None
         self.fig.show()
