@@ -24,8 +24,7 @@ cd gemma-qwen-video-query
 ````
 
 ### 2. Build the environment
-##### 2.1 On Jetson Devices
-A ready-to-run setup script is included for Jetson devices.
+A ready-to-run setup script is included.
 
 ```bash
 chmod +x build_env.sh
@@ -39,23 +38,12 @@ You can check the environment configuration before building
 This script will:
 
 * Create a Conda (or venv) environment named `video_query`
+* Check if the device is a Jetson or non-Jetson device
 * Check Jetpack version and install respective dependencies
 * Install all other dependencies 
 
 > ⚠️ If you don't have Conda installed, the script will automatically fall back to Python `venv`.
 
-
-##### 2.2 On Non-Jetson Devices
-
-An environment building script is included for Non-Jetson devices.
-```bash
-chmod +x build_env_notjetson.sh
-./build_env_notjetson.sh 
-``` 
-This script will:
-
-* Create a Conda (or venv) environment named `video_query`
-* Install all dependencies needed for Python 3.10
 
 ---
 
@@ -64,7 +52,7 @@ This script will:
 #### If using Conda:
 
 ```bash
-conda activate gemma3
+conda activate video_query
 ```
 
 #### If using venv:
