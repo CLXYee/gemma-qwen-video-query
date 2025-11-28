@@ -43,7 +43,6 @@ This script will:
 * Install all other dependencies 
 
 > ⚠️ If you don't have Conda installed, the script will automatically fall back to Python `venv`.
-> ⚠️ For Jetpack 5.1.2, manually install [torch](https://entuedu-my.sharepoint.com/my?id=%2Fpersonal%2Fc230032%5Fe%5Fntu%5Fedu%5Fsg%2FDocuments%2FIntern%2FDemo%2Ftorch%2D2%2E6%2E0a0%2Bgit1eba9b3%2Dcp310%2Dcp310%2Dlinux%5Faarch64%2Ewhl&parent=%2Fpersonal%2Fc230032%5Fe%5Fntu%5Fedu%5Fsg%2FDocuments%2FIntern%2FDemo&ga=1) and [torchvision](https://entuedu-my.sharepoint.com/my?id=%2Fpersonal%2Fc230032%5Fe%5Fntu%5Fedu%5Fsg%2FDocuments%2FIntern%2FDemo%2Ftorchvision%2D0%2E21%2E0%2B7af6987%2Dcp310%2Dcp310%2Dlinux%5Faarch64%2Ewhl&parent=%2Fpersonal%2Fc230032%5Fe%5Fntu%5Fedu%5Fsg%2FDocuments%2FIntern%2FDemo&ga=1) wheels. Then, run `pip install <filename>` in the <b>activated environment</b>
 
 
 ##### 2.2 On Non-Jetson Devices
@@ -122,13 +121,18 @@ python video_query.py \
 
 ```
 ├── build_env.sh            # Jetson environment setup script
-├── requirements.txt        # Python dependencies
+├── usage.md                # Usage examples
 ├── video_query.py          # Main entry point
-├── video_agent.py          # Inference + display loop
+├── video_agent.py          # Inference + display loop for video-based query
+├── image_agent.py          # Inference + display loop for image-based query
 ├── camera.py               # Video source (Jetson camera input)
 ├── display.py              # Pygame-based safe video output
+├── image_source.py         # Image fetcher for video-like display
 ├── model.py                # Gemma3 model class wrapper
 └── utils/                  # Helper modules (CUDA utils, image tools, etc.)
+└── script/                 # Supporting environment setup script
+└── output/                 # Sample outputs during video query (.csv, .mp4)
+└── selected/               # Image samples for demo
 ```
 
 ---
