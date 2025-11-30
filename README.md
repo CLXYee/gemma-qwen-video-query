@@ -1,4 +1,4 @@
-# 🎥 Gemma3 Real-Time Video Agent (Jetson Optimized)
+# 🎥 Real-Time Video Query VLM Agent (Jetson Optimized)
 
 This project enables real-time video captioning and visual understanding using **Google’s Gemma3 vision-language model**, optimized for **NVIDIA Jetson devices**.  
 It uses CUDA-accelerated inference and a lightweight **Pygame display backend** for stable video rendering.
