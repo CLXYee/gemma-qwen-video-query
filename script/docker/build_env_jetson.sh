@@ -165,20 +165,20 @@ fi
 echo "----------------------------------------------------"
 echo "Installing jetson-utils from source..."
 echo "----------------------------------------------------"
-sudo apt update
-sudo apt install -y cmake build-essential git python3-dev
+apt update
+apt install -y cmake build-essential git python3-dev
 
 WORKDIR=$(pwd)
 cd /tmp
 
-if [ -d "jetson-utils" ]; then sudo rm -rf jetson-utils; fi
+if [ -d "jetson-utils" ]; then rm -rf jetson-utils; fi
 git clone --recursive https://github.com/dusty-nv/jetson-utils
 cd jetson-utils
 mkdir build && cd build
 cmake -DPYTHON_EXECUTABLE=$(which python) ../
 make -j$(nproc)
-sudo make install
-sudo ldconfig
+make install
+ldconfig
 
 #!/usr/bin/env bash
 set -euo pipefail
@@ -237,7 +237,7 @@ if [ -n "$SOURCE_PARENT" ]; then
     SRC_SO="$SOURCE_PARENT/jetson_utils_python.so"
 
     # ensure destination exists
-    sudo mkdir -p "$TARGET_SITE_PACKAGES"
+    mkdir -p "$TARGET_SITE_PACKAGES"
 
     # Compare realpaths to avoid copying into itself (same env case)
     if [ -e "$SRC_PKG_DIR" ]; then
@@ -249,7 +249,7 @@ if [ -n "$SOURCE_PARENT" ]; then
             echo "  $SRC_REAL"
         else
             echo "Copying package directory from system dist to target site-packages..."
-            sudo cp -r "$SRC_PKG_DIR" "$TARGET_SITE_PACKAGES/"
+            cp -r "$SRC_PKG_DIR" "$TARGET_SITE_PACKAGES/"
             echo "Copied: $SRC_PKG_DIR -> $TARGET_SITE_PACKAGES/"
         fi
     fi
@@ -261,7 +261,7 @@ if [ -n "$SOURCE_PARENT" ]; then
             echo "Binary .so already present and identical. No copy needed."
         else
             echo "Copying binary .so from system dist to target site-packages..."
-            sudo cp "$SRC_SO" "$TARGET_SITE_PACKAGES/"
+            cp "$SRC_SO" "$TARGET_SITE_PACKAGES/"
             echo "Copied: $SRC_SO -> $TARGET_SITE_PACKAGES/"
         fi
     fi
@@ -298,7 +298,7 @@ echo "----------------------------------------------------"
 case $PYTHON_VERSION in
     3.8)
         PYTHON_PACKAGES=(
-            "transformers==4.37.2"
+            "transformers"
             "numpy==1.24.4"
             "Pillow==10.2.0"
             "pygame==2.5.2"
@@ -327,7 +327,7 @@ for pkg in "${PYTHON_PACKAGES[@]}"; do
 done
 pip install termcolor tabulate docker ffmpeg matplotlib
 pip install accelerate
-sudo apt install -y ffmpeg mesa-utils
+apt install -y ffmpeg mesa-utils
 
 pip cache purge || true
 
